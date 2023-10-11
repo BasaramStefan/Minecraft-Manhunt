@@ -1,15 +1,34 @@
 package net.bezeram.manhuntmod.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.bezeram.manhuntmod.game_manager.Game;
+import net.bezeram.manhuntmod.item.DeathSafeItems;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.blocks.BlockStateArgument;
+import net.minecraft.commands.arguments.item.ItemArgument;
+import net.minecraft.commands.arguments.item.ItemPredicateArgument;
+import net.minecraft.data.registries.VanillaRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.scores.PlayerTeam;
 import org.jetbrains.annotations.NotNull;
 
+import java.awt.*;
+import java.util.Hashtable;
+
 public class DebugCommand {
 	public DebugCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
+		CommandBuildContext commandbuildcontext = Commands.createValidationContext(VanillaRegistries.createLookup());
 		dispatcher.register(Commands.literal("Debug")
 				.then(Commands.literal("ActiveTime").executes((command) -> {
 					// Print time elapsed since start of game
@@ -20,8 +39,7 @@ public class DebugCommand {
 
 						command.getSource().getPlayerOrException().sendSystemMessage(
 								Component.literal(timeSeconds + " have elapsed since start of manhunt"));
-					}
-					else {
+					} else {
 						command.getSource().getPlayerOrException().sendSystemMessage(
 								Component.literal("No game in session"));
 					}
@@ -48,7 +66,89 @@ public class DebugCommand {
 							Component.literal(feedback));
 
 					return 0;
+				}))
+				.then(Commands.literal("GetInventoryItem")
+						.then(Commands.argument("slot", IntegerArgumentType.integer())
+								.executes((command) -> {
+									ServerPlayer player = command.getSource().getPlayerOrException();
+									ItemStack item = player.getInventory().getItem(IntegerArgumentType.getInteger(command, "slot"));
+									player.getEnderChestInventory().addItem(item);
+
+									return 0;
+								})))
+				.then(Commands.literal("RemoveInventoryItem")
+						.then(Commands.argument("slot", IntegerArgumentType.integer())
+								.then(Commands.argument("count", IntegerArgumentType.integer())
+										.executes((command) -> {
+											ServerPlayer player = command.getSource().getPlayerOrException();
+											ItemStack item = player.getInventory()
+													.removeItem(IntegerArgumentType.getInteger(command, "slot"),
+															IntegerArgumentType.getInteger(command, "count"));
+											player.getEnderChestInventory().addItem(item);
+
+											return 0;
+										}))))
+				.then(Commands.literal("SetInventoryItem")
+						.then(Commands.argument("slot", IntegerArgumentType.integer())
+								.executes((command) -> {
+									ServerPlayer player = command.getSource().getPlayerOrException();
+									player.getInventory().setItem(
+											IntegerArgumentType.getInteger(command, "slot"),
+											new ItemStack(Items.DIRT));
+
+									return 0;
+								})))
+				.then(Commands.literal("SaveInventory")
+						.executes((command) -> {
+							final int SLOT_COUNT = 41;
+
+							if (command.getSource().getEntity() instanceof ServerPlayer player && !player.isCreative() && Game.get().rulesEnabled()) {
+								Inventory savedInventory = new Inventory(player);
+
+								for (int slot = 0; slot < SLOT_COUNT; slot++) {
+									ItemStack itemStack = player.getInventory().getItem(slot);
+
+									if (DeathSafeItems.isDeathSafe(itemStack.getItem())) {
+										savedInventory.setItem(slot, itemStack);
+										System.out.println("current slot: " + slot + " " + itemStack.getItem());
+										player.getInventory().setItem(slot, ItemStack.EMPTY);
+									}
+								}
+
+								System.out.println("Player: " + player.getDisplayName().getString() + " requests inventory save");
+								Game.get().saveInventory(player.getDisplayName().getString(), savedInventory);
+								player.displayClientMessage(Component.literal("Inventory saved"), false);
+							}
+
+							return 0;
+						}))
+				.then(Commands.literal("LoadInventory")
+						.executes((command) -> {
+							final int SLOT_COUNT = 41;
+
+							Player player = command.getSource().getPlayerOrException();
+							String playerName = player.getDisplayName().getString();
+							System.out.println("Player: " + playerName + " requests inventory load");
+
+							if (Game.get().getInventory(playerName) == null) {
+								player.displayClientMessage(Component.literal("No inventory saved!")
+										.withStyle(ChatFormatting.RED), false);
+							}
+
+							for (int slot = 0; slot < SLOT_COUNT; slot++) {
+								ItemStack itemStack = Game.get().getInventory(playerName).getItem(slot);
+								player.getInventory().setItem(slot, itemStack);
+							}
+
+							player.displayClientMessage(Component.literal("Inventory loaded"), false);
+							return 0;
 				})));
+	}
+
+	private static void printInventory(String playerName) {
+		Inventory inventory = Game.get().getInventory(playerName);
+		for (int slot = 0; slot < 41; slot++)
+			System.out.println("slot: " + slot + " " + inventory.getItem(slot));
 	}
 
 	@NotNull
@@ -57,8 +157,11 @@ public class DebugCommand {
 		PlayerTeam teamHunter = Game.get().getTeamHunter();
 
 		StringBuilder output = new StringBuilder(
-				"Team Runner Name: " + teamRunner.getDisplayName() +
-						"\nTeam Hunter Name: " + teamHunter.getDisplayName());
+				"Team Runner display name: " + teamRunner.getDisplayName().getString() +
+						"\nTeam Hunter display name: " + teamHunter.getDisplayName().getString());
+
+		output.append("\nTeam Runner real name: " + teamRunner.getName() +
+				"\nTeam Hunter real name: " + teamHunter.getName());
 
 		output.append("\nTeam Runner Members: ");
 		for (String runner : teamRunner.getPlayers()) {

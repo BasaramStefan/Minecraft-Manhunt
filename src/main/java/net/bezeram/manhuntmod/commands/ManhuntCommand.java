@@ -1,14 +1,19 @@
 package net.bezeram.manhuntmod.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.ParseResults;
 import net.bezeram.manhuntmod.game_manager.Game;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.TeamArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.scores.PlayerTeam;
 import org.jetbrains.annotations.NotNull;
 
@@ -20,9 +25,8 @@ public class ManhuntCommand {
 		.then(Commands.argument("teamHunter", TeamArgument.team())
 				.executes((command) -> {
 					if (Game.isInSession()) {
-						command.getSource()
-								.getPlayerOrException()
-								.sendSystemMessage(Component.literal("Game already in session"));
+						command.getSource().getPlayerOrException().sendSystemMessage(Component
+								.literal("Game already in session").withStyle(ChatFormatting.RED));
 						return 1;
 					}
 
@@ -33,8 +37,8 @@ public class ManhuntCommand {
 					String teamRunnerName = teamRunner.getName();
 					String teamHunterName = teamHunter.getName();
 					if (teamRunnerName.equals(teamHunterName)) {
-						command.getSource().getPlayerOrException().sendSystemMessage(
-								Component.literal("One team cannot play against themselves"));
+						command.getSource().getPlayerOrException().sendSystemMessage(Component
+								.literal("One team cannot play against themselves").withStyle(ChatFormatting.RED));
 						return 1;
 					}
 
@@ -45,18 +49,21 @@ public class ManhuntCommand {
 					if (pack.success)
 						Game.init(teamRunner, teamHunter);
 
-					command.getSource()
-							.getPlayerOrException()
-							.sendSystemMessage(Component.literal(pack.feedback));
-				return 0;
+					command.getSource().getPlayerOrException().sendSystemMessage(
+							Component.literal(pack.feedback).withStyle(pack.format));
+
+					// Setup vanilla gamerules
+					GameRules gameRules = command.getSource().getServer().getWorldData().getGameRules();
+					// If this isn't false, it messes up the mechanic of safe death items
+					gameRules.getRule(GameRules.RULE_KEEPINVENTORY).set(false, command.getSource().getServer());
+					return 0;
 		}))))
 		.then(Commands.argument("runner", EntityArgument.entity())
 		.then(Commands.argument("hunter", EntityArgument.entity())
 				.executes((command) -> {
 					if (Game.isInSession()) {
-						command.getSource()
-								.getPlayerOrException()
-								.sendSystemMessage(Component.literal("Game already in session"));
+						command.getSource().getPlayerOrException().sendSystemMessage(Component
+								.literal("Game already in session").withStyle(ChatFormatting.RED));
 						return 1;
 					}
 
@@ -64,74 +71,76 @@ public class ManhuntCommand {
 					ServerPlayer runner = EntityArgument.getPlayer(command, "runner");
 					ServerPlayer hunter = EntityArgument.getPlayer(command, "hunter");
 
-					// TODO:
-					// If the runner and hunter are the same player, the game will crash because it will automatically make one team empty
 					String runnerName = runner.getName().getString();
 					String hunterName = hunter.getName().getString();
 					if (runnerName.equals(hunterName)) {
-						command.getSource()
-								.getPlayerOrException()
-								.sendSystemMessage(Component.literal("One cannot play against themselves"));
+						command.getSource().getPlayerOrException().sendSystemMessage(Component
+								.literal("One cannot play against themselves").withStyle(ChatFormatting.RED));
 						return 1;
 					}
 
 					// Instantiate runner team and add the runner
 					ServerScoreboard serverScoreboard = command.getSource().getServer().getScoreboard();
-					PlayerTeam teamRunner = new PlayerTeam(serverScoreboard, runner.getName().getString());
-					PlayerTeam teamHunter = new PlayerTeam(serverScoreboard, hunter.getName().getString());
-					teamRunner.setDisplayName(Component.literal(runner.getName().toString()));
-					teamHunter.setDisplayName(Component.literal(hunter.getName().toString()));
+					PlayerTeam teamRunner = new PlayerTeam(serverScoreboard, runnerName);
+					PlayerTeam teamHunter = new PlayerTeam(serverScoreboard, hunterName);
+					teamRunner.setDisplayName(Component.literal(runner.getName().getString()));
+					teamHunter.setDisplayName(Component.literal(hunter.getName().getString()));
 
-					serverScoreboard.addPlayerToTeam(runner.toString(), teamRunner);
-					serverScoreboard.addPlayerToTeam(hunter.toString(), teamHunter);
+					serverScoreboard.addPlayerToTeam(runner.getName().getString(), teamRunner);
+					serverScoreboard.addPlayerToTeam(hunter.getName().getString(), teamHunter);
 
 					Game.init(teamRunner, teamHunter);
 
-					command.getSource()
-							.getPlayerOrException()
-							.sendSystemMessage(Component.literal("Starting game..."));
+					command.getSource().getPlayerOrException().sendSystemMessage(Component
+							.literal("Starting game...").withStyle(ChatFormatting.GREEN));
+
+					// Setup vanilla gamerules
+					GameRules gameRules = command.getSource().getServer().getWorldData().getGameRules();
+					// If this isn't false, it messes up the mechanic of safe death items
+					gameRules.getRule(GameRules.RULE_KEEPINVENTORY).set(false, command.getSource().getServer());
 					return 0;
 		})))
 		.then(Commands.literal("stop")
 				.executes((command) -> {
-					// Stop game
-					boolean exists = Game.isInSession();
-					String playerFeedback = "";
-
-					if (exists) {
+					if (Game.isInSession()) {
 						Game.stopGame();
-						playerFeedback = "Game of Manhunt forcefully stopped";
+						command.getSource().getPlayerOrException().sendSystemMessage(Component
+								.literal("Game of Manhunt forcefully stopped").withStyle(ChatFormatting.GREEN));
 					}
-					else
-						playerFeedback = "No game in session";
+					else {
+						command.getSource().getPlayerOrException().sendSystemMessage(Component
+								.literal("No game in session").withStyle(ChatFormatting.RED));
+					}
 
-					command.getSource()
-							.getPlayerOrException()
-							.sendSystemMessage(Component
-									.literal(playerFeedback));
 					return 0;
 		})));
 	}
 
 	static class ValidateType {
 		ValidateType() {}
-		ValidateType(String feedback, boolean success) {
+		ValidateType(String feedback, boolean success, ChatFormatting format) {
 			this.feedback = feedback;
 			this.success = success;
+			this.format = format;
 		}
 
 		ValidateType intersection(ValidateType otherPack) {
 			if (!this.success && !otherPack.success)
-				return new ValidateType(this.feedback, false);
+				return new ValidateType(this.feedback, false, this.format);
 			if (!this.success)
-				return new ValidateType(this.feedback, true);
+				return new ValidateType(this.feedback, true, this.format);
 			if (!otherPack.success)
-				return new ValidateType(otherPack.feedback, false);
-			return new ValidateType(this.feedback, true);
+				return new ValidateType(otherPack.feedback, false, otherPack.format);
+			return new ValidateType(this.feedback, true, this.format);
 		}
 
 		private String feedback = "";
 		private boolean success = false;
+		private ChatFormatting format = DEFAULT_FORMAT;
+
+		public static final ChatFormatting FAILURE_FORMAT = ChatFormatting.RED;
+		public static final ChatFormatting SUCCESS_FORMAT = ChatFormatting.GREEN;
+		public static final ChatFormatting DEFAULT_FORMAT = ChatFormatting.WHITE;
 	}
 
 	private static ValidateType checkTeamsEmpty(PlayerTeam teamRunner, PlayerTeam teamHunter) {
@@ -139,17 +148,17 @@ public class ManhuntCommand {
 		boolean teamHunterEmpty = teamHunter.getPlayers().isEmpty();
 
 		if (teamRunnerEmpty && teamHunterEmpty)
-			return new ValidateType("Both teams are empty", false);
+			return new ValidateType("Both teams are empty", false, ValidateType.FAILURE_FORMAT);
 		if (teamRunnerEmpty)
-			return new ValidateType("Runner team is empty", false);
+			return new ValidateType("Runner team is empty", false, ValidateType.FAILURE_FORMAT);
 		if (teamHunterEmpty)
-			return new ValidateType("Hunter team is empty", false);
-		return new ValidateType("Starting game...", true);
+			return new ValidateType("Hunter team is empty", false, ValidateType.FAILURE_FORMAT);
+		return new ValidateType("Starting game...", true, ValidateType.SUCCESS_FORMAT);
 	}
 
 	private static ValidateType checkExists() {
 		if (Game.isInSession())
-			return new ValidateType("Already in session", false);
-		return new ValidateType("Starting game...", true);
+			return new ValidateType("Already in session", false, ValidateType.FAILURE_FORMAT);
+		return new ValidateType("Starting game...", true, ValidateType.SUCCESS_FORMAT);
 	}
 }

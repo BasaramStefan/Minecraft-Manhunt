@@ -15,6 +15,7 @@ public class ManhuntTimerCommand {
 						.executes((command) -> {
 							double minutes = DoubleArgumentType.getDouble(command, "timeMinutes");
 							TimerManager.setGameTime(minutes);
+
 							command.getSource().getPlayerOrException().sendSystemMessage(Component.literal(
 									"Game time has been set to " + minutes + " minutes"
 							));
@@ -25,6 +26,7 @@ public class ManhuntTimerCommand {
 						.executes((command) -> {
 							double seconds = DoubleArgumentType.getDouble(command, "timeSeconds");
 							TimerManager.setHeadstart(seconds);
+
 							command.getSource().getPlayerOrException().sendSystemMessage(Component.literal(
 									"Headstart time has been set to " + seconds + " seconds"
 							));
@@ -35,6 +37,7 @@ public class ManhuntTimerCommand {
 						.executes((command) -> {
 							double minutes = DoubleArgumentType.getDouble(command, "timeMinutes");
 							TimerManager.setDeathPenalty(minutes);
+
 							command.getSource().getPlayerOrException().sendSystemMessage(Component.literal(
 									"Penalty for death has been set to " + minutes + " minutes"
 							));
@@ -45,10 +48,11 @@ public class ManhuntTimerCommand {
 						.executes((command) -> {
 							double minutes = DoubleArgumentType.getDouble(command, "timeMinutes");
 							TimerManager.setPauseTime(minutes);
+
 							command.getSource().getPlayerOrException().sendSystemMessage(Component.literal(
 									"Pause time has been set to " + minutes + " minutes"
 							));
 							return 0;
-						}))));
+		}))));
 	}
 }

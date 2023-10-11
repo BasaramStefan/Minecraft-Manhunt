@@ -132,10 +132,10 @@ dependencies {
     minecraft 'net.minecraftforge:forge:1.19.4-45.2.2'
 
     // Real mod deobf dependency examples - these get remapped to your current mappings
-    // implementation fg.deobf("com.tterrag.registrate:Registrate:MC${mc_version}-${registrate_version}") // Adds registrate as a dependency
+//    implementation fg.deobf("net.bezeram.manhuntmod:forge:1.19.4-45.2.0") // Adds registrate as a dependency
 
     // Examples using mod jars from ./libs
-    // implementation fg.deobf("blank:coolmod-${mc_version}:${coolmod_version}")
+//     implementation fg.deobf("blank:manhuntmod-${mc_version}:${coolmod_version}")
 
     // For more info...
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
