@@ -3,6 +3,7 @@ package net.bezeram.manhuntmod.game_manager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.resources.sounds.Sound;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.sounds.SoundEvent;
@@ -12,6 +13,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
+import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraftforge.event.TickEvent;
 
@@ -55,6 +57,10 @@ public class Game {
 	public void toggleRules(boolean enabled) {
 		if (!Game.isInSession())
 			rulesEnabled = enabled;
+	}
+
+	public void applyDeathPenalty() {
+		timer.deathPenalty();
 	}
 
 	public boolean rulesEnabled() {
@@ -160,6 +166,12 @@ public class Game {
 
 					if (player != null)
 						player.playSound(SoundEvents.PILLAGER_CELEBRATE);
+				}
+
+				ServerScoreboard scoreboard = event.getServer().getScoreboard();
+				Objective timer = scoreboard.getObjective("TimeLeft");
+				if (timer != null) {
+					scoreboard.removeObjective(timer);
 				}
 
 				currentState = GameState.ERASE;

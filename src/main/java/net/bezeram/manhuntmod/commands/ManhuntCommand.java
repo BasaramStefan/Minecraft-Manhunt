@@ -14,7 +14,10 @@ import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import org.jetbrains.annotations.NotNull;
 
 public class ManhuntCommand {
@@ -46,16 +49,28 @@ public class ManhuntCommand {
 					// Check if teams are empty
 					ValidateType pack = checkTeamsEmpty(teamRunner, teamHunter);
 
-					if (pack.success)
+					if (pack.success) {
 						Game.init(teamRunner, teamHunter);
+
+						// Initiate the scoreboard objectives and personalize
+						ServerScoreboard serverScoreboard = command.getSource().getServer().getScoreboard();
+						Objective timer = serverScoreboard.addObjective("TimeLeft", ObjectiveCriteria.DUMMY,
+								Component.translatable(ServerScoreboard.getDisplaySlotName(1)),
+								ObjectiveCriteria.RenderType.INTEGER);
+
+						timer.setDisplayName(Component.literal("Time left"));
+						serverScoreboard.getOrCreatePlayerScore("Minutes", timer);
+						serverScoreboard.setDisplayObjective(1, serverScoreboard.getObjective("TimeLeft"));
+
+						// Setup vanilla gamerules
+						GameRules gameRules = command.getSource().getServer().getWorldData().getGameRules();
+						// If this isn't false, it messes up the mechanic of safe death items
+						gameRules.getRule(GameRules.RULE_KEEPINVENTORY).set(false, command.getSource().getServer());
+					}
 
 					command.getSource().getPlayerOrException().sendSystemMessage(
 							Component.literal(pack.feedback).withStyle(pack.format));
 
-					// Setup vanilla gamerules
-					GameRules gameRules = command.getSource().getServer().getWorldData().getGameRules();
-					// If this isn't false, it messes up the mechanic of safe death items
-					gameRules.getRule(GameRules.RULE_KEEPINVENTORY).set(false, command.getSource().getServer());
 					return 0;
 		}))))
 		.then(Commands.argument("runner", EntityArgument.entity())
@@ -91,6 +106,15 @@ public class ManhuntCommand {
 
 					Game.init(teamRunner, teamHunter);
 
+					// Initiate the scoreboard objectives and personalize
+					Objective timer = serverScoreboard.addObjective("TimeLeft", ObjectiveCriteria.DUMMY,
+									Component.translatable(ServerScoreboard.getDisplaySlotName(1)),
+									ObjectiveCriteria.RenderType.INTEGER);
+
+					timer.setDisplayName(Component.literal("Time left"));
+					serverScoreboard.getOrCreatePlayerScore("Minutes", timer);
+					serverScoreboard.setDisplayObjective(1, serverScoreboard.getObjective("TimeLeft"));
+
 					command.getSource().getPlayerOrException().sendSystemMessage(Component
 							.literal("Starting game...").withStyle(ChatFormatting.GREEN));
 
@@ -104,6 +128,13 @@ public class ManhuntCommand {
 				.executes((command) -> {
 					if (Game.isInSession()) {
 						Game.stopGame();
+
+						ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
+						Objective objective = scoreboard.getObjective("TimeLeft");
+						if (objective != null) {
+							scoreboard.removeObjective(objective);
+						}
+
 						command.getSource().getPlayerOrException().sendSystemMessage(Component
 								.literal("Game of Manhunt forcefully stopped").withStyle(ChatFormatting.GREEN));
 					}
