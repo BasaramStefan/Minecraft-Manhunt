@@ -50,7 +50,7 @@ public class ManhuntCommand {
 					ValidateType pack = checkTeamsEmpty(teamRunner, teamHunter);
 
 					if (pack.success) {
-						Game.init(teamRunner, teamHunter);
+						Game.init(teamRunner, teamHunter, command.getSource().getServer().getPlayerList());
 
 						// Initiate the scoreboard objectives and personalize
 						ServerScoreboard serverScoreboard = command.getSource().getServer().getScoreboard();
@@ -104,7 +104,7 @@ public class ManhuntCommand {
 					serverScoreboard.addPlayerToTeam(runner.getName().getString(), teamRunner);
 					serverScoreboard.addPlayerToTeam(hunter.getName().getString(), teamHunter);
 
-					Game.init(teamRunner, teamHunter);
+					Game.init(teamRunner, teamHunter, command.getSource().getServer().getPlayerList());
 
 					// Initiate the scoreboard objectives and personalize
 					Objective timer = serverScoreboard.addObjective("TimeLeft", ObjectiveCriteria.DUMMY,

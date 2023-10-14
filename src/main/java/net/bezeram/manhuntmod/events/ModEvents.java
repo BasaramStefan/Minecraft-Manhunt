@@ -9,6 +9,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.ServerScoreboard;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -26,6 +28,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.entity.player.PlayerSetSpawnEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -85,7 +88,7 @@ public class ModEvents {
 			if (!Game.isInSession() || event.getPlayer().isCreative())
 				return;
 
-			if (isHunterAtHeadstart(event.getPlayer())) {
+			if (Game.isHunterAtHeadstart(event.getPlayer())) {
 				event.setCanceled(true);
 				return;
 			}
@@ -141,7 +144,13 @@ public class ModEvents {
 
 			// TODO:
 			// Ender Dragon dies, runner wins
-//			if (event.getEntity() instanceof EnderDragon) {
+			if (event.getEntity() instanceof EnderDragon) {
+				Game.get().runnerHasWon();
+				return;
+			}
+//
+//			if (event.getEntity().getName().getString().equals("Ender Dragon")) {
+//				System.out.println("dragon death called by string comparison");
 //				Game.get().runnerHasWon();
 //				return;
 //			}
@@ -170,7 +179,7 @@ public class ModEvents {
 				Game.get().saveInventory(player.getDisplayName().getString(), savedInventory);
 
 				// Deduct from the game time if the player is a runner
-				if (isRunner(player)) {
+				if (Game.get().isRunner(player)) {
 					Game.get().applyDeathPenalty();
 				}
 			}
@@ -193,40 +202,7 @@ public class ModEvents {
 		        return;
 	        }
 
-	        for (int slot = 0; slot < SLOT_COUNT; slot++) {
-		        ItemStack itemStack = Game.get().getInventory(playerName).getItem(slot);
-		        player.getInventory().setItem(slot, itemStack);
-	        }
-		}
-
-		private static boolean isHunterAtHeadstart(Player player) {
-			if (player.getTeam() == null || Game.getGameState() != Game.GameState.HEADSTART)
-				return false;
-
-			String playerName = player.getName().getString();
-			PlayerTeam hunterTeam = Game.get().getTeamHunter();
-			for (String hunter : hunterTeam.getPlayers()) {
-				if (hunter.contains(playerName)) {
-					return true;
-				}
-			}
-
-			return false;
-		}
-
-		private static boolean isRunner(Player player) {
-			if (player.getTeam() == null || Game.getGameState() != Game.GameState.ONGOING)
-				return false;
-
-			String playerName = player.getName().getString();
-			PlayerTeam runnerTeam = Game.get().getTeamRunner();
-			for (String runner : runnerTeam.getPlayers()) {
-				if (runner.contains(playerName)) {
-					return true;
-				}
-			}
-
-			return false;
+			player.getInventory().replaceWith(Game.get().getInventory(playerName));
 		}
 
 		public static final int SLOT_COUNT = 41;

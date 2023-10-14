@@ -142,6 +142,11 @@ public class DebugCommand {
 
 							player.displayClientMessage(Component.literal("Inventory loaded"), false);
 							return 0;
+				}))
+				.then(Commands.literal("RemoveEnchantment")
+						.executes((command) -> {
+							Game.removePiercing(command.getSource().getPlayerOrException());
+							return 0;
 				})));
 	}
 

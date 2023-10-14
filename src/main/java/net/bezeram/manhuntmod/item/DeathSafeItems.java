@@ -127,6 +127,7 @@ public class DeathSafeItems {
 			items.put(Items.DAMAGED_ANVIL, 0);
 			items.put(Items.ENCHANTING_TABLE, 0);
 			items.put(Items.GOLDEN_APPLE, 0);
+			items.put(Items.SLIME_BLOCK, 0);
 
 			// Beds and anchor
 			items.put(Items.RESPAWN_ANCHOR, 0);
