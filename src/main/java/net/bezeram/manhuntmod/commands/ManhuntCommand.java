@@ -21,6 +21,7 @@ import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
+import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import org.apache.logging.log4j.core.jmx.Server;
 import org.jetbrains.annotations.NotNull;
 
@@ -149,6 +150,12 @@ public class ManhuntCommand {
 						if (Game.canPauseGame(command)) {
 							Game.get().pauseGame(command.getSource().getServer().getPlayerList());
 
+							ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
+							Objective timer = scoreboard.getObjective("TimeLeft");
+
+							assert timer != null;
+							scoreboard.getOrCreatePlayerScore("PAUSED", timer).setScore(0);
+
 							command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
 									.literal("Game has been paused: resume at will")
 									.withStyle(ChatFormatting.GREEN),	false);
@@ -171,6 +178,12 @@ public class ManhuntCommand {
 					if (Game.isInSession()) {
 						if (Game.canResumeGame(command)) {
 							Game.get().resumeGame();
+
+							ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
+							Objective timer = scoreboard.getObjective("TimeLeft");
+
+							assert timer != null;
+							scoreboard.resetPlayerScore("PAUSED", timer);
 
 							command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
 									.literal("Game will be resumed in " + (int)Game.get().getResumeDelay().asSeconds() + " seconds")
