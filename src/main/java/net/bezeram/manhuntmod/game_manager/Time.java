@@ -22,6 +22,12 @@ public class Time {
 		return time;
 	}
 
+	public void setTicks(long ticks) { this.ticks = ticks; }
+
+	public Time clone() {
+		return new Time(ticks);
+	}
+
 	public void advance() { ticks++; }
 	public void advance(Time time) { ticks += time.asTicks(); }
 	public void advance(long ticks) { this.ticks += ticks; }

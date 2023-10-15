@@ -1,37 +1,64 @@
 package net.bezeram.manhuntmod.game_manager;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.players.PlayerList;
 import net.minecraftforge.event.TickEvent;
 
 public class TimerManager {
 	private static Time RUNNER_LIMIT 			= Time.TimeMinutes(90);
+	private static Time RUNNER_START 			= Time.TimeSeconds(5);
 	private static Time HEADSTART 				= Time.TimeSeconds(30);
 	private static Time DEATH_PENALTY 			= Time.TimeMinutes(5);
 	private static Time PAUSE 					= Time.TimeMinutes(10);
+	private static Time RESUME 					= Time.TimeSeconds(5);
 	private static Time HEADSTART_HINT_BOUND 	= Time.TimeSeconds(5);
 
 	public TimerManager() {
 		activeGame 		= new Time();
 		activeHeadstart = new Time();
+		activeStart     = new Time();
+		activeResume    = new Time();
+		prevActiveStart = new Time();
+		prevActiveResume = new Time();
 		game 			= RUNNER_LIMIT;
+		start           = RUNNER_START;
 		headstart 		= HEADSTART;
 		deathPenalty 	= DEATH_PENALTY;
 		pause			= PAUSE;
+		resume          = RESUME;
 	}
 
 	public void updateActive() 		{ activeGame.advance(); }
+	public void updateStart() 	    { activeStart.advance(); }
 	public void updateHeadstart() 	{ activeHeadstart.advance(); }
-	public void deathPenalty() 		{ activeGame.advance(deathPenalty); }
-	public void updateHeadstartHints(TickEvent.ServerTickEvent event) {
-		if (activeHeadstartHints()) {
-			displayHeadstartHint(event);
+	public void updateResume() 	    { activeResume.advance(); }
+	public void deathPenalty() 		{
+		// If the current game time is below the death penalty, it will not be updated as to show how much
+		// time was left on scoreboard
+		if (game.asTicks() - activeGame.asTicks() < deathPenalty.asTicks()) {
+			Game.get().hunterHasWon();
+			return;
 		}
+
+		activeGame.advance(deathPenalty);
 	}
+
+	public void updateHeadstartHints(TickEvent.ServerTickEvent event)   { displayHeadstartHint(event); }
+	public void updateStartHints(TickEvent.ServerTickEvent event)       { displayStartHint(event); }
+	public void updateResumeHints(TickEvent.ServerTickEvent event)      { displayResumeHint(event); }
 
 	public boolean activeTimeHasEnded()		{ return activeGame.asTicks() 		>= game.asTicks(); }
 	public boolean huntersHaveStarted()		{ return activeHeadstart.asTicks() 	>= headstart.asTicks(); }
-	public boolean activeHeadstartHints()	{ return activeHeadstart.asTicks() 	<= headstart.asTicks(); }
+	public boolean runnersHaveStarted()     { return activeStart.asTicks()      >= start.asTicks(); }
+	public boolean gameResumed()            { return activeResume.asTicks()     >= resume.asTicks(); }
+
+	public Time getSessionGame()            { return game; }
+	public Time getSessionStart()           { return start; }
+	public Time getSessionHeadstart()       { return headstart; }
+	public Time getSessionDeathPenalty()    { return deathPenalty; }
+	public Time getSessionPause()           { return pause; }
+	public Time getSessionResume()          { return resume; }
 
 	public static void setGameTime(double minutes) 		{ RUNNER_LIMIT 		= Time.TimeMinutes(minutes); }
 	public static void setHeadstart(double seconds) 	{ HEADSTART 		= Time.TimeSeconds(seconds); }
@@ -39,9 +66,11 @@ public class TimerManager {
 	public static void setPauseTime(double minutes) 	{ PAUSE 			= Time.TimeMinutes(minutes); }
 
 	public static Time getGameTime() 		{ return RUNNER_LIMIT;  }
+	public static Time getStartTime() 		{ return RUNNER_START;  }
 	public static Time getHeadstart() 		{ return HEADSTART;  	}
 	public static Time getDeathPenalty() 	{ return DEATH_PENALTY; }
 	public static Time getPauseTime() 		{ return PAUSE; 	 	}
+	public static Time getResumeTime() 		{ return RESUME; 	 	}
 
 	public static long minutesToTicks(double minutes) 	{ return (long)(minutes * 2400.f); }
 	public static long secondsToTicks(double seconds) 	{ return (long)(seconds * 40.f); }
@@ -54,7 +83,30 @@ public class TimerManager {
 		PlayerList playerList = event.getServer().getPlayerList();
 		double seconds = headstart.asSeconds() - activeHeadstart.asSeconds();
 		seconds = round(seconds, 1);
-		playerList.broadcastSystemMessage(Component.literal(String.valueOf(seconds)), true);
+		playerList.broadcastSystemMessage(Component
+				.literal(String.valueOf(seconds)).withStyle(ChatFormatting.GREEN), true);
+	}
+
+	private void displayStartHint(TickEvent.ServerTickEvent event) {
+		PlayerList playerList = event.getServer().getPlayerList();
+		if (activeStart.asSeconds() - prevActiveStart.asSeconds() > 1) {
+			int seconds = (int) Math.ceil(start.asSeconds() - activeStart.asSeconds());
+			playerList.broadcastSystemMessage(Component
+					.literal(String.valueOf(seconds)).withStyle(ChatFormatting.GREEN), false);
+
+			prevActiveStart = activeStart.clone();
+		}
+	}
+
+	private void displayResumeHint(TickEvent.ServerTickEvent event) {
+		if (activeResume.asSeconds() - prevActiveResume.asSeconds() > 1) {
+			PlayerList playerList = event.getServer().getPlayerList();
+			int seconds = (int) Math.ceil(resume.asSeconds() - activeResume.asSeconds());
+			playerList.broadcastSystemMessage(Component
+					.literal(String.valueOf(seconds)).withStyle(ChatFormatting.GREEN), false);
+
+			prevActiveResume = activeResume.clone();
+		}
 	}
 
 	private static double round(double value, int precision) {
@@ -63,9 +115,15 @@ public class TimerManager {
 	}
 
 	private Time activeGame;
+	private Time activeStart;
+	private Time prevActiveStart;
 	private Time activeHeadstart;
+	private Time activeResume;
+	private Time prevActiveResume;
 	private final Time game;
+	private final Time start;
 	private final Time headstart;
 	private final Time deathPenalty;
 	private final Time pause;
+	private final Time resume;
 }

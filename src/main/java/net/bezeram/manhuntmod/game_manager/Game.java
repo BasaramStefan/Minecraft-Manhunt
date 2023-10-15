@@ -1,40 +1,41 @@
 package net.bezeram.manhuntmod.game_manager;
 
+import com.mojang.brigadier.context.CommandContext;
+import net.bezeram.manhuntmod.events.ModEvents;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.resources.sounds.Sound;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.ServerScoreboard;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
-import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraftforge.event.TickEvent;
 
 import java.util.*;
 
 public class Game {
-	// TODO: Add event: When EnderDragon dies -> runner (team) wins
-
 	private static Game GAME_INSTANCE = null;
 
 	private Game(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList) {
 		this.teamRunner = teamRunner;
 		this.teamHunter = teamHunter;
-		currentState = GameState.HEADSTART;
+		currentState = GameState.START;
+		prevState = currentState;
+		ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
 
 		for (ServerPlayer player : playerList.getPlayers())
 			if (isHunter(player))
 				huntersStartCoords.put(player.getName().getString(), player.getPosition(1));
+			else if (isRunner(player))
+				runnersStartCoords.put(player.getName().getString(), player.getPosition(1));
 	}
 
 	public static void init(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList) {
@@ -53,36 +54,50 @@ public class Game {
 		return currentState;
 	}
 
+	public static GameState getPrevGameState() {
+		return prevState;
+	}
+
+	public static void setGameState(GameState state) {
+		prevState = currentState;
+		currentState = state;
+	}
+
 	public static void stopGame() {
-		GAME_INSTANCE.toggleRules(false);
 		currentState = GameState.NULL;
 		GAME_INSTANCE = null;
 	}
 
-	public void toggleRules(boolean enabled) {
-		if (!Game.isInSession())
-			rulesEnabled = enabled;
+	public void applyDeathPenalty(Level level) {
+		switch (ManhuntGameRules.DEATH_PENALTY) {
+			case TRUE -> {
+				timer.deathPenalty();
+			}
+			case TRUE_EXCEPT_END -> {
+				boolean diedInEnd = level.dimensionTypeRegistration().is(BuiltinDimensionTypes.END);
+				if (!diedInEnd) {
+					timer.deathPenalty();
+				}
+			}
+		}
 	}
 
-	public void applyDeathPenalty() {
-		timer.deathPenalty();
-	}
-
-	public boolean rulesEnabled() {
-		return rulesEnabled;
-	}
-
-	public Time getElapsedTime() {
-		return timer.getTime();
-	}
+	public Time getElapsedTime()    { return timer.getTime(); }
+	public Time getGameTime()       { return timer.getSessionGame(); }
+	public Time getStartDelay()     { return timer.getSessionStart(); }
+	public Time getHeadstartTime()  { return timer.getSessionHeadstart(); }
+	public Time getPauseTime()      { return timer.getSessionPause(); }
+	public Time getResumeDelay()    { return timer.getSessionResume(); }
+	public Time getTimeLeft()       { return Time.TimeTicks(timer.getSessionGame().asTicks() - getElapsedTime().asTicks()); }
+	public boolean isSuddenDeath()  { return getTimeLeft().asTicks() < timer.getSessionDeathPenalty().asTicks(); }
 
 	public void runnerHasWon() {
-		currentState = GameState.END;
+		setGameState(GameState.END);
 		runnerWins = true;
 	}
 
 	public void hunterHasWon() {
-		currentState = GameState.END;
+		setGameState(GameState.END);
 		runnerWins = false;
 	}
 
@@ -139,25 +154,68 @@ public class Game {
 	}
 
 	// Game can only be paused while in the ONGOING GameState
-	public void pauseGame() {
+	public static boolean canPauseGame(CommandContext<CommandSourceStack> command) {
+		List<ServerPlayer> playersList = command.getSource().getServer().getPlayerList().getPlayers();
+		for (ServerPlayer player : playersList) {
+			Vec3 deltaPos = player.getDeltaMovement();
+			if (deltaPos.x != 0 || deltaPos.y != 0 || deltaPos.z != 0)
+				return false;
+		}
+
+		return true;
+	}
+
+	public static boolean canResumeGame(CommandContext<CommandSourceStack> command) {
+		return Game.getGameState() == GameState.PAUSE;
+	}
+
+	public void pauseGame(PlayerList playerList) {
+		for (ServerPlayer player : playerList.getPlayers())
+			playersPrevCoords.put(player.getName().getString(), player.getPosition(1));
+
+		prevState = currentState;
 		currentState = GameState.PAUSE;
 	}
 
-	public void unPauseGame() {
-		currentState = GameState.ONGOING;
+	public void resumeGame() {
+		currentState = GameState.RESUME;
 	}
 
 	public void update(TickEvent.ServerTickEvent event) {
 		switch (currentState) {
 			case PAUSE -> {
+				lockPlayersPos(event);
+			}
+			case RESUME -> {
+				timer.updateResume();
+				timer.updateResumeHints(event);
+				lockPlayersPos(event);
 
+				if (timer.gameResumed()) {
+					currentState = prevState;
+					PlayerList playerList = event.getServer().getPlayerList();
+					playerList.broadcastSystemMessage(Component
+									.literal("Game resumed").withStyle(ChatFormatting.DARK_GREEN), false);
+				}
+			}
+			case START -> {
+				timer.updateStart();
+				timer.updateStartHints(event);
+				lockHuntersPos(event);
+				lockRunnersPos(event);
+
+				if (timer.runnersHaveStarted()) {
+					if (ManhuntGameRules.HEADSTART)
+						setGameState(GameState.HEADSTART);
+					else
+						setGameState(GameState.ONGOING);
+
+					PlayerList playerList = event.getServer().getPlayerList();
+					playerList.broadcastSystemMessage(Component
+							.literal("GO!").withStyle(ChatFormatting.DARK_GREEN), false);
+				}
 			}
 			case HEADSTART -> {
-				/*
-					TODO:
-				 	Do not allow hunters to move or break blocks
-				*/
-
 				timer.updateActive();
 				timer.updateHeadstart();
 				timer.updateHeadstartHints(event);
@@ -165,7 +223,7 @@ public class Game {
 				lockHuntersPos(event);
 
 				if (timer.huntersHaveStarted()) {
-					currentState = GameState.ONGOING;
+					setGameState(GameState.ONGOING);
 					PlayerList playerList = event.getServer().getPlayerList();
 					playerList.broadcastSystemMessage(Component.literal("Hunters have been unleashed!"), false);
 					/*
@@ -179,11 +237,12 @@ public class Game {
 				}
 			}
 			case ONGOING -> {
-				timer.updateActive();
+				if (ManhuntGameRules.TIME_LIMIT) {
+					timer.updateActive();
 
-				// Update the game
-				if (timer.activeTimeHasEnded())
-					hunterHasWon();
+					if (timer.activeTimeHasEnded())
+						hunterHasWon();
+				}
 
 				// TODO:
 				// Update compass
@@ -195,7 +254,6 @@ public class Game {
 				PlayerTeam winnerTeam = (runnerWins) ? teamRunner : teamHunter;
 				PlayerTeam loserTeam  = (!runnerWins) ? teamRunner : teamHunter;
 
-				// TODO: Display the feedback correctly
 				String feedbackServer = "";
 				if (winnerTeam.getPlayers().size() == 1)
 					feedbackServer = winnerTeam.getDisplayName().getString() + " has won the game!";
@@ -208,23 +266,18 @@ public class Game {
 					ServerPlayer player = playerList.getPlayerByName(playerName);
 
 					if (player != null)
-						player.playSound(SoundEvents.PLAYER_LEVELUP);
+						player.playSound(SoundEvents.PLAYER_LEVELUP, 50.f, 1.f);
 				}
 
 				for (String playerName : loserTeam.getPlayers()) {
 					ServerPlayer player = playerList.getPlayerByName(playerName);
 
 					if (player != null)
-						player.playSound(SoundEvents.PILLAGER_CELEBRATE);
+						player.playSound(SoundEvents.PILLAGER_CELEBRATE, 50.f, 1.f);
 				}
 
-				ServerScoreboard scoreboard = event.getServer().getScoreboard();
-				Objective timer = scoreboard.getObjective("TimeLeft");
-				if (timer != null) {
-					scoreboard.removeObjective(timer);
-				}
-
-				currentState = GameState.ERASE;
+				setGameState(GameState.ERASE);
+				ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
 			}
 		}
 	}
@@ -262,7 +315,7 @@ public class Game {
 	}
 
 	public boolean isRunner(Player player) {
-		if (player.getTeam() == null || currentState != GameState.ONGOING)
+		if (player.getTeam() == null)
 			return false;
 
 		String playerName = player.getName().getString();
@@ -290,17 +343,49 @@ public class Game {
 			}
 	}
 
+	private void lockRunnersPos(TickEvent.ServerTickEvent event) {
+		PlayerList playerList = event.getServer().getPlayerList();
+		for (ServerPlayer player : playerList.getPlayers())
+			if (isRunner(player)) {
+				Vec3 coords = runnersStartCoords.get(player.getName().getString());
+				Vec3 currentPlayerCoords = player.getPosition(1);
+
+				if (currentPlayerCoords.x != coords.x ||
+						currentPlayerCoords.y != coords.y ||
+						currentPlayerCoords.z != coords.z) {
+					player.teleportTo(coords.x, coords.y, coords.z);
+				}
+			}
+	}
+
+	private void lockPlayersPos(TickEvent.ServerTickEvent event) {
+		PlayerList playerList = event.getServer().getPlayerList();
+		for (ServerPlayer player : playerList.getPlayers()) {
+			Vec3 coords = playersPrevCoords.get(player.getName().getString());
+			Vec3 currentPlayerCoords = player.getPosition(1);
+
+			if (currentPlayerCoords.x != coords.x ||
+					currentPlayerCoords.y != coords.y ||
+					currentPlayerCoords.z != coords.z) {
+				player.teleportTo(coords.x, coords.y, coords.z);
+			}
+		}
+	}
+
 	// TODO: Implement the PAUSE game state
 	public enum GameState {
-		NULL, HEADSTART, ONGOING, END, PAUSE, ERASE
+		NULL, START, HEADSTART, ONGOING, END, RESUME, PAUSE, ERASE
 	}
+
 	private static GameState currentState = GameState.NULL;
-	private boolean rulesEnabled = false;
+	private static GameState prevState = GameState.NULL;
 	private boolean runnerWins = true;
 
 	private final PlayerTeam teamRunner;
 	private final PlayerTeam teamHunter;
 	private final Hashtable<String, Vec3> huntersStartCoords = new Hashtable<>();
+	private final Hashtable<String, Vec3> runnersStartCoords = new Hashtable<>();
+	private final Hashtable<String, Vec3> playersPrevCoords = new Hashtable<>();
 
 	private final Hashtable<String, Inventory> playerInventories = new Hashtable<>();
 

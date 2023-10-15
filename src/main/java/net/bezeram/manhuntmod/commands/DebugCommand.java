@@ -2,7 +2,9 @@ package net.bezeram.manhuntmod.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game_manager.Game;
+import net.bezeram.manhuntmod.game_manager.Time;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
@@ -102,7 +104,7 @@ public class DebugCommand {
 						.executes((command) -> {
 							final int SLOT_COUNT = 41;
 
-							if (command.getSource().getEntity() instanceof ServerPlayer player && !player.isCreative() && Game.get().rulesEnabled()) {
+							if (command.getSource().getEntity() instanceof ServerPlayer player && !player.isCreative()) {
 								Inventory savedInventory = new Inventory(player);
 
 								for (int slot = 0; slot < SLOT_COUNT; slot++) {
@@ -146,6 +148,15 @@ public class DebugCommand {
 				.then(Commands.literal("RemoveEnchantment")
 						.executes((command) -> {
 							Game.removePiercing(command.getSource().getPlayerOrException());
+							return 0;
+				}))
+				.then(Commands.literal("SuddenDeathHighlight")
+						.executes((command) -> {
+							Time cycle = ModEvents.ForgeEvents.SuddenDeathWarning.highlightCycleTimer;
+							Time highlight = ModEvents.ForgeEvents.SuddenDeathWarning.highlightChangeDelayTimer;
+
+							command.getSource().getPlayerOrException().displayClientMessage(Component
+									.literal("HighlightCycleTimer:" + cycle.asSeconds() + " -/- HighlightChangeDelay" + highlight.asSeconds()), false);
 							return 0;
 				})));
 	}

@@ -115,6 +115,7 @@ public class DeathSafeItems {
 			items.put(Items.FLINT_AND_STEEL, 0);
 			items.put(Items.BUCKET, 0);
 			items.put(Items.WATER_BUCKET, 0);
+			items.put(Items.POWDER_SNOW_BUCKET, 0);
 			items.put(Items.BOW, 0);
 			items.put(Items.CROSSBOW, 0);
 			items.put(Items.LEAD, 0);

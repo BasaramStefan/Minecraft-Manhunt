@@ -3,6 +3,8 @@ package net.bezeram.manhuntmod.commands;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.ParseResults;
 import net.bezeram.manhuntmod.game_manager.Game;
+import net.bezeram.manhuntmod.game_manager.ManhuntGameRules;
+import net.bezeram.manhuntmod.game_manager.TimerManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -14,10 +16,12 @@ import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
+import org.apache.logging.log4j.core.jmx.Server;
 import org.jetbrains.annotations.NotNull;
 
 public class ManhuntCommand {
@@ -45,31 +49,28 @@ public class ManhuntCommand {
 						return 1;
 					}
 
+					teamRunner.setColor(ChatFormatting.DARK_GREEN);
+					teamHunter.setColor(ChatFormatting.DARK_PURPLE);
+
 					// Validate command conditions
 					// Check if teams are empty
 					ValidateType pack = checkTeamsEmpty(teamRunner, teamHunter);
 
 					if (pack.success) {
-						Game.init(teamRunner, teamHunter, command.getSource().getServer().getPlayerList());
-
 						// Initiate the scoreboard objectives and personalize
-						ServerScoreboard serverScoreboard = command.getSource().getServer().getScoreboard();
-						Objective timer = serverScoreboard.addObjective("TimeLeft", ObjectiveCriteria.DUMMY,
-								Component.translatable(ServerScoreboard.getDisplaySlotName(1)),
-								ObjectiveCriteria.RenderType.INTEGER);
-
-						timer.setDisplayName(Component.literal("Time left"));
-						serverScoreboard.getOrCreatePlayerScore("Minutes", timer);
-						serverScoreboard.setDisplayObjective(1, serverScoreboard.getObjective("TimeLeft"));
+						ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
+						setupScoreboard(scoreboard, teamRunner, teamHunter);
 
 						// Setup vanilla gamerules
 						GameRules gameRules = command.getSource().getServer().getWorldData().getGameRules();
 						// If this isn't false, it messes up the mechanic of safe death items
 						gameRules.getRule(GameRules.RULE_KEEPINVENTORY).set(false, command.getSource().getServer());
+
+						Game.init(teamRunner, teamHunter, command.getSource().getServer().getPlayerList());
 					}
 
-					command.getSource().getPlayerOrException().sendSystemMessage(
-							Component.literal(pack.feedback).withStyle(pack.format));
+					command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
+							.literal(pack.feedback).withStyle(pack.format), false);
 
 					return 0;
 		}))))
@@ -95,33 +96,31 @@ public class ManhuntCommand {
 					}
 
 					// Instantiate runner team and add the runner
-					ServerScoreboard serverScoreboard = command.getSource().getServer().getScoreboard();
-					PlayerTeam teamRunner = new PlayerTeam(serverScoreboard, runnerName);
-					PlayerTeam teamHunter = new PlayerTeam(serverScoreboard, hunterName);
+					ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
+					PlayerTeam teamRunner = scoreboard.addPlayerTeam(runnerName);
+					PlayerTeam teamHunter = scoreboard.addPlayerTeam(hunterName);
 					teamRunner.setDisplayName(Component.literal(runner.getName().getString()));
 					teamHunter.setDisplayName(Component.literal(hunter.getName().getString()));
-
-					serverScoreboard.addPlayerToTeam(runner.getName().getString(), teamRunner);
-					serverScoreboard.addPlayerToTeam(hunter.getName().getString(), teamHunter);
-
-					Game.init(teamRunner, teamHunter, command.getSource().getServer().getPlayerList());
+					teamRunner.setColor(ChatFormatting.DARK_GREEN);
+					teamHunter.setColor(ChatFormatting.DARK_PURPLE);
+					scoreboard.addPlayerToTeam(runner.getName().getString(), teamRunner);
+					scoreboard.addPlayerToTeam(hunter.getName().getString(), teamHunter);
 
 					// Initiate the scoreboard objectives and personalize
-					Objective timer = serverScoreboard.addObjective("TimeLeft", ObjectiveCriteria.DUMMY,
-									Component.translatable(ServerScoreboard.getDisplaySlotName(1)),
-									ObjectiveCriteria.RenderType.INTEGER);
-
-					timer.setDisplayName(Component.literal("Time left"));
-					serverScoreboard.getOrCreatePlayerScore("Minutes", timer);
-					serverScoreboard.setDisplayObjective(1, serverScoreboard.getObjective("TimeLeft"));
-
-					command.getSource().getPlayerOrException().sendSystemMessage(Component
-							.literal("Starting game...").withStyle(ChatFormatting.GREEN));
+					setupScoreboard(scoreboard, teamRunner, teamHunter);
 
 					// Setup vanilla gamerules
 					GameRules gameRules = command.getSource().getServer().getWorldData().getGameRules();
 					// If this isn't false, it messes up the mechanic of safe death items
 					gameRules.getRule(GameRules.RULE_KEEPINVENTORY).set(false, command.getSource().getServer());
+
+					Game.init(teamRunner, teamHunter, command.getSource().getServer().getPlayerList());
+
+					command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
+								.literal("Starting game in: " + (int)Game.get().getStartDelay().asSeconds() + " " +
+										"seconds")
+								.withStyle(ChatFormatting.GREEN),
+							false);
 					return 0;
 		})))
 		.then(Commands.literal("stop")
@@ -130,10 +129,9 @@ public class ManhuntCommand {
 						Game.stopGame();
 
 						ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
-						Objective objective = scoreboard.getObjective("TimeLeft");
-						if (objective != null) {
-							scoreboard.removeObjective(objective);
-						}
+						PlayerTeam playerTeam = scoreboard.getPlayerTeam("SuddenDeath");
+						if (playerTeam != null)
+							command.getSource().getServer().getScoreboard().removePlayerTeam(playerTeam);
 
 						command.getSource().getPlayerOrException().sendSystemMessage(Component
 								.literal("Game of Manhunt forcefully stopped").withStyle(ChatFormatting.GREEN));
@@ -144,7 +142,87 @@ public class ManhuntCommand {
 					}
 
 					return 0;
+		}))
+		.then(Commands.literal("pause")
+				.executes((command) -> {
+					if (Game.isInSession()) {
+						if (Game.canPauseGame(command)) {
+							Game.get().pauseGame(command.getSource().getServer().getPlayerList());
+
+							command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
+									.literal("Game has been paused: resume at will")
+									.withStyle(ChatFormatting.GREEN),	false);
+							return 0;
+						}
+
+						command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
+								.literal("Pause request invalid: all players must sit still")
+								.withStyle(ChatFormatting.GOLD),	false);
+						return 1;
+					}
+
+					command.getSource().getPlayerOrException().sendSystemMessage(Component
+							.literal("No game in session").withStyle(ChatFormatting.RED));
+
+					return 1;
+		}))
+		.then(Commands.literal("resume")
+				.executes((command) -> {
+					if (Game.isInSession()) {
+						if (Game.canResumeGame(command)) {
+							Game.get().resumeGame();
+
+							command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
+									.literal("Game will be resumed in " + (int)Game.get().getResumeDelay().asSeconds() + " seconds")
+									.withStyle(ChatFormatting.GREEN),	false);
+							return 0;
+						}
+					}
+
+					command.getSource().getPlayerOrException().sendSystemMessage(Component
+							.literal("No game in session").withStyle(ChatFormatting.RED));
+
+					return 1;
 		})));
+	}
+
+	private static void setupScoreboard(ServerScoreboard scoreboard, PlayerTeam teamRunner, PlayerTeam teamHunter) {
+		Objective timer = scoreboard.getObjective("TimeLeft");
+		if (timer == null) {
+			Component sidebar = Component.translatable(ServerScoreboard.getDisplaySlotName(1));
+			ObjectiveCriteria.RenderType renderType = ObjectiveCriteria.RenderType.INTEGER;
+			ObjectiveCriteria playerKillCount = ObjectiveCriteria.KILL_COUNT_PLAYERS;
+
+			timer = scoreboard.addObjective("TimeLeft", playerKillCount, sidebar, renderType);
+		}
+
+		if (ManhuntGameRules.TIME_LIMIT) {
+			timer.setDisplayName(Component.literal("Time / Kills").withStyle(ChatFormatting.GOLD));
+
+			if (TimerManager.getGameTime().asMinutes() > 1) {
+				scoreboard.getOrCreatePlayerScore("Minutes", timer);
+				scoreboard.resetPlayerScore("Seconds", timer);
+			}
+			else {
+				scoreboard.getOrCreatePlayerScore("Seconds", timer);
+				scoreboard.resetPlayerScore("Minutes", timer);
+			}
+		}
+		else {
+			// We only have teams on the scoreboard, might as well be labeled kills
+			timer.setDisplayName(Component.literal("Kills").withStyle(ChatFormatting.GOLD));
+		}
+
+		// Display teams
+		for (String runner : teamRunner.getPlayers()) {
+			scoreboard.getOrCreatePlayerScore(runner, timer).setScore(0);
+		}
+
+		for (String hunter : teamHunter.getPlayers()) {
+			scoreboard.getOrCreatePlayerScore(hunter, timer).setScore(0);
+		}
+
+		scoreboard.setDisplayObjective(1, scoreboard.getObjective("TimeLeft"));
 	}
 
 	static class ValidateType {
@@ -181,15 +259,21 @@ public class ManhuntCommand {
 		if (teamRunnerEmpty && teamHunterEmpty)
 			return new ValidateType("Both teams are empty", false, ValidateType.FAILURE_FORMAT);
 		if (teamRunnerEmpty)
-			return new ValidateType("Runner team is empty", false, ValidateType.FAILURE_FORMAT);
+			return new ValidateType("Runner team (" + teamRunner.getName() + ") is empty", false,
+					ValidateType.FAILURE_FORMAT);
+
 		if (teamHunterEmpty)
-			return new ValidateType("Hunter team is empty", false, ValidateType.FAILURE_FORMAT);
-		return new ValidateType("Starting game...", true, ValidateType.SUCCESS_FORMAT);
+			return new ValidateType("Hunter team (" + teamHunter.getName() + ") is empty", false,
+					ValidateType.FAILURE_FORMAT);
+
+		return new ValidateType("Starting game in " + (int)Game.get().getStartDelay().asSeconds() + " seconds", true,
+				ValidateType.SUCCESS_FORMAT);
 	}
 
 	private static ValidateType checkExists() {
 		if (Game.isInSession())
 			return new ValidateType("Already in session", false, ValidateType.FAILURE_FORMAT);
-		return new ValidateType("Starting game...", true, ValidateType.SUCCESS_FORMAT);
+		return new ValidateType("Starting game in " + (int)Game.get().getStartDelay().asSeconds() + " seconds", true,
+				ValidateType.SUCCESS_FORMAT);
 	}
 }
