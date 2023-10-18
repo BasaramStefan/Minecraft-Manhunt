@@ -9,6 +9,20 @@ public class ManhuntGameRules {
 		DISABLED, ALL, EXTENDED_ONLY, AMPLIFIED_ONLY, EXTENDED_OR_AMPLIFIED
 	}
 
+	public enum SaveInventoryType {
+		FALSE(false, false),
+		TRUE(true, false),
+		TRUE_KEEP_END(true, true);
+
+		SaveInventoryType(boolean canSave, boolean keepAllEnd) {
+			this.canSave = canSave;
+			this.keepAllEnd = keepAllEnd;
+		}
+
+		public final boolean canSave;
+		public final boolean keepAllEnd; // All items are kept when player dies in specified dimension
+	}
+
 	public static void resetDefaults() {
 		LIMITED_RESPAWNS = DEFAULT_LIMITED_RESPAWNS;
 		TIME_LIMIT = DEFAULT_TIME_LIMIT;
@@ -23,24 +37,24 @@ public class ManhuntGameRules {
 		CAN_BREAK_SPAWNERS = DEFAULT_CAN_BREAK_SPAWNERS;
 	}
 
-	public static boolean LIMITED_RESPAWNS = true;
-	public static boolean TIME_LIMIT = true;
-	public static boolean SAVE_INVENTORIES = true;
-	public static boolean HEADSTART = true;
-	public static boolean DISABLE_RESPAWN_BLOCK_EXPLOSION = true;
-	public final static EnchantmentBanType BAN_ENCHANTMENTS = new EnchantmentBanType();
-	public static PotionBanType BAN_POTIONS = PotionBanType.EXTENDED_OR_AMPLIFIED;
-	public static DeathPenaltyType DEATH_PENALTY = DeathPenaltyType.TRUE_EXCEPT_END;
-	public static boolean BAN_END_CRYSTALS = false;
-	public static boolean CAN_BREAK_SPAWNERS = false;
+	public static final boolean             DEFAULT_LIMITED_RESPAWNS                    = true;
+	public static final boolean             DEFAULT_TIME_LIMIT                          = true;
+	public static final SaveInventoryType   DEFAULT_SAVE_INVENTORIES                    = SaveInventoryType.TRUE_KEEP_END;
+	public static final boolean             DEFAULT_HEADSTART                           = true;
+	public static final boolean             DEFAULT_DISABLE_RESPAWN_BLOCK_EXPLOSION     = true;
+	public static final PotionBanType       DEFAULT_BAN_POTIONS                         = PotionBanType.EXTENDED_OR_AMPLIFIED;
+	public static final DeathPenaltyType    DEFAULT_DEATH_PENALTY                       = DeathPenaltyType.TRUE_EXCEPT_END;
+	public static final boolean             DEFAULT_BAN_END_CRYSTALS                    = false;
+	public static final boolean             DEFAULT_CAN_BREAK_SPAWNERS                  = false;
 
-	public static boolean DEFAULT_LIMITED_RESPAWNS = true;
-	public static boolean DEFAULT_TIME_LIMIT = true;
-	public static boolean DEFAULT_SAVE_INVENTORIES = true;
-	public static boolean DEFAULT_HEADSTART = true;
-	public static boolean DEFAULT_DISABLE_RESPAWN_BLOCK_EXPLOSION = true;
-	public static PotionBanType DEFAULT_BAN_POTIONS = PotionBanType.EXTENDED_OR_AMPLIFIED;
-	public static DeathPenaltyType DEFAULT_DEATH_PENALTY = DeathPenaltyType.TRUE_EXCEPT_END;
-	public static boolean DEFAULT_BAN_END_CRYSTALS = false;
-	public static boolean DEFAULT_CAN_BREAK_SPAWNERS = false;
+	public static boolean                   LIMITED_RESPAWNS                = DEFAULT_LIMITED_RESPAWNS;
+	public static boolean                   TIME_LIMIT                      = DEFAULT_TIME_LIMIT;
+	public static SaveInventoryType         SAVE_INVENTORIES                = DEFAULT_SAVE_INVENTORIES;
+	public static boolean                   HEADSTART                       = DEFAULT_HEADSTART;
+	public static boolean                   DISABLE_RESPAWN_BLOCK_EXPLOSION = DEFAULT_DISABLE_RESPAWN_BLOCK_EXPLOSION;
+	public final static EnchantmentBanType  BAN_ENCHANTMENTS                = new EnchantmentBanType();
+	public static PotionBanType             BAN_POTIONS                     = DEFAULT_BAN_POTIONS;
+	public static DeathPenaltyType          DEATH_PENALTY                   = DEFAULT_DEATH_PENALTY;
+	public static boolean                   BAN_END_CRYSTALS                = DEFAULT_BAN_END_CRYSTALS;
+	public static boolean                   CAN_BREAK_SPAWNERS              = DEFAULT_CAN_BREAK_SPAWNERS;
 }

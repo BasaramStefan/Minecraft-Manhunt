@@ -6,7 +6,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundSoundPacket;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.sounds.SoundEvents;
@@ -82,13 +82,14 @@ public class Game {
 		}
 	}
 
-	public Time getElapsedTime()    { return timer.getTime(); }
+	public Time getElapsedTime()    { return timer.getGameElapsed(); }
 	public Time getGameTime()       { return timer.getSessionGame(); }
 	public Time getStartDelay()     { return timer.getSessionStart(); }
 	public Time getHeadstartTime()  { return timer.getSessionHeadstart(); }
 	public Time getPauseTime()      { return timer.getSessionPause(); }
 	public Time getResumeDelay()    { return timer.getSessionResume(); }
 	public Time getTimeLeft()       { return Time.TimeTicks(timer.getSessionGame().asTicks() - getElapsedTime().asTicks()); }
+	public void resetResumeTime()   { timer.resetResumeHints(); }
 	public boolean isSuddenDeath()  { return getTimeLeft().asTicks() < timer.getSessionDeathPenalty().asTicks(); }
 
 	public void runnerHasWon() {
@@ -153,11 +154,17 @@ public class Game {
 		return false;
 	}
 
-	// Game can only be paused while in the ONGOING GameState
 	public static boolean canPauseGame(CommandContext<CommandSourceStack> command) {
+		if (!Game.isInSession() && Game.getGameState() == GameState.PAUSE)
+			return false;
+
 		List<ServerPlayer> playersList = command.getSource().getServer().getPlayerList().getPlayers();
 		for (ServerPlayer player : playersList) {
-			Vec3 deltaPos = player.getDeltaMovement();
+			Vec3 lastPosition = PlayerLastLocations.Overworld.getLastPosition(player.getName().getString());
+			Vec3 currentPosition = player.getPosition(1);
+			Vec3 deltaPos = new Vec3(currentPosition.x - lastPosition.x,
+										currentPosition.y - lastPosition.y,
+										currentPosition.z - lastPosition.z);
 			if (deltaPos.x != 0 || deltaPos.y != 0 || deltaPos.z != 0)
 				return false;
 		}
@@ -182,6 +189,12 @@ public class Game {
 	}
 
 	public void update(TickEvent.ServerTickEvent event) {
+		timer.updatePlayerPosition();
+		if (timer.getPlayerPositionElapsed().asSeconds() > 1) {
+			PlayerLastLocations.updateAll(event);
+			timer.resetPlayerPositionTime();
+		}
+
 		switch (currentState) {
 			case PAUSE -> {
 				lockPlayersPos(event);
@@ -193,9 +206,14 @@ public class Game {
 
 				if (timer.gameResumed()) {
 					currentState = prevState;
-					PlayerList playerList = event.getServer().getPlayerList();
-					playerList.broadcastSystemMessage(Component
+					PlayerList allPlayers = event.getServer().getPlayerList();
+					allPlayers.broadcastSystemMessage(Component
 									.literal("Game resumed").withStyle(ChatFormatting.DARK_GREEN), false);
+
+					for (ServerPlayer player : allPlayers.getPlayers()) {
+						player.setInvulnerable(false);
+						player.setInvisible(false);
+					}
 				}
 			}
 			case START -> {
@@ -216,7 +234,9 @@ public class Game {
 				}
 			}
 			case HEADSTART -> {
-				timer.updateActive();
+				if (ManhuntGameRules.TIME_LIMIT)
+					timer.updateActive();
+
 				timer.updateHeadstart();
 				timer.updateHeadstartHints(event);
 
@@ -266,33 +286,49 @@ public class Game {
 					ServerPlayer player = playerList.getPlayerByName(playerName);
 
 					if (player != null)
-						player.playSound(SoundEvents.PLAYER_LEVELUP, 50.f, 1.f);
+						player.playSound(SoundEvents.PLAYER_LEVELUP);
 				}
 
 				for (String playerName : loserTeam.getPlayers()) {
 					ServerPlayer player = playerList.getPlayerByName(playerName);
 
 					if (player != null)
-						player.playSound(SoundEvents.PILLAGER_CELEBRATE, 50.f, 1.f);
+						player.playSound(SoundEvents.PILLAGER_CELEBRATE);
 				}
 
 				setGameState(GameState.ERASE);
 				ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
 			}
+			case ERASE -> {}
 		}
 	}
 
 	public PlayerTeam getTeamRunner() { return teamRunner; }
 	public PlayerTeam getTeamHunter() { return teamHunter; }
 
-	public static boolean isHunterAtHeadstart(Player player) {
-		if (player.getTeam() == null || currentState != GameState.HEADSTART)
+	public static boolean isHunterAtGameState(Player player, GameState targetGameState) {
+		if (player.getTeam() == null || currentState != targetGameState)
 			return false;
 
 		String playerName = player.getName().getString();
 		PlayerTeam hunterTeam = Game.get().getTeamHunter();
 		for (String hunter : hunterTeam.getPlayers()) {
 			if (hunter.contains(playerName)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public static boolean isRunnerAtGameState(Player player, GameState targetGameState) {
+		if (player.getTeam() == null || currentState != targetGameState)
+			return false;
+
+		String playerName = player.getName().getString();
+		PlayerTeam teamRunner = Game.get().getTeamRunner();
+		for (String runner : teamRunner.getPlayers()) {
+			if (runner.contains(playerName)) {
 				return true;
 			}
 		}
@@ -386,6 +422,36 @@ public class Game {
 	private final Hashtable<String, Vec3> huntersStartCoords = new Hashtable<>();
 	private final Hashtable<String, Vec3> runnersStartCoords = new Hashtable<>();
 	private final Hashtable<String, Vec3> playersPrevCoords = new Hashtable<>();
+
+	public enum PlayerLastLocations {
+		Overworld, Nether, End;
+
+		public void update(String playerName, Vec3 newPosition) {
+			lastPlayerPosition.put(playerName, newPosition);
+		}
+
+		public static void updateAll(TickEvent.ServerTickEvent event) {
+			PlayerList allPlayers = event.getServer().getPlayerList();
+			for (ServerPlayer player : allPlayers.getPlayers()) {
+				ServerLevel level = player.getLevel();
+				String name = player.getName().getString();
+				Vec3 newPosition = player.getPosition(0);
+
+				if (level.dimension() == Level.OVERWORLD)
+					PlayerLastLocations.Overworld.update(name, newPosition);
+				else if (level.dimension() == Level.NETHER)
+					PlayerLastLocations.Nether.update(name, newPosition);
+				else if (level.dimension() == Level.END)
+					PlayerLastLocations.End.update(name, newPosition);
+			}
+		}
+
+		public Vec3 getLastPosition(String playerName) {
+			return lastPlayerPosition.get(playerName);
+		}
+
+		private final Hashtable<String, Vec3> lastPlayerPosition = new Hashtable<>();
+	}
 
 	private final Hashtable<String, Inventory> playerInventories = new Hashtable<>();
 

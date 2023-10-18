@@ -1,7 +1,6 @@
 package net.bezeram.manhuntmod.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.ParseResults;
 import net.bezeram.manhuntmod.game_manager.Game;
 import net.bezeram.manhuntmod.game_manager.ManhuntGameRules;
 import net.bezeram.manhuntmod.game_manager.TimerManager;
@@ -11,19 +10,13 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.TeamArgument;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.level.GameRules;
-import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
-import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
-import net.minecraftforge.event.server.ServerAboutToStartEvent;
-import org.apache.logging.log4j.core.jmx.Server;
-import org.jetbrains.annotations.NotNull;
 
 public class ManhuntCommand {
 	public ManhuntCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -148,13 +141,20 @@ public class ManhuntCommand {
 				.executes((command) -> {
 					if (Game.isInSession()) {
 						if (Game.canPauseGame(command)) {
-							Game.get().pauseGame(command.getSource().getServer().getPlayerList());
+							PlayerList allPlayers = command.getSource().getServer().getPlayerList();
+							Game.get().pauseGame(allPlayers);
 
 							ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
 							Objective timer = scoreboard.getObjective("TimeLeft");
-
 							assert timer != null;
 							scoreboard.getOrCreatePlayerScore("PAUSED", timer).setScore(0);
+
+							Game.get().resetResumeTime();
+
+							for (ServerPlayer player : allPlayers.getPlayers()) {
+								player.setInvulnerable(true);
+								player.setInvisible(true);
+							}
 
 							command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
 									.literal("Game has been paused: resume at will")
@@ -181,7 +181,6 @@ public class ManhuntCommand {
 
 							ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
 							Objective timer = scoreboard.getObjective("TimeLeft");
-
 							assert timer != null;
 							scoreboard.resetPlayerScore("PAUSED", timer);
 
@@ -223,6 +222,8 @@ public class ManhuntCommand {
 		}
 		else {
 			// We only have teams on the scoreboard, might as well be labeled kills
+			scoreboard.resetPlayerScore("Seconds", timer);
+			scoreboard.resetPlayerScore("Minutes", timer);
 			timer.setDisplayName(Component.literal("Kills").withStyle(ChatFormatting.GOLD));
 		}
 

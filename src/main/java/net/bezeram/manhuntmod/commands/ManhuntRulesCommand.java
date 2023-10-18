@@ -19,7 +19,7 @@ public class ManhuntRulesCommand {
 					.literal("Manhunt: rules have been reset to default"), false);
 			return 0;
 		}))
-		.then(Commands.literal("timeLimit")
+		.then(Commands.literal("doTimeLimit")
 		.then(Commands.argument("toggle", BoolArgumentType.bool()).executes((command) -> {
 			ManhuntGameRules.TIME_LIMIT = BoolArgumentType.getBool(command, "toggle");
 
@@ -39,12 +39,23 @@ public class ManhuntRulesCommand {
 			return 0;
 		})))
 		.then(Commands.literal("saveInventory")
+		.then(Commands.literal("toggle")
 		.then(Commands.argument("toggle", BoolArgumentType.bool()).executes((command) -> {
-			ManhuntGameRules.SAVE_INVENTORIES = BoolArgumentType.getBool(command, "toggle");
+			boolean in = BoolArgumentType.getBool(command, "toggle");
+			ManhuntGameRules.SAVE_INVENTORIES = (in) ? ManhuntGameRules.SaveInventoryType.TRUE :
+														ManhuntGameRules.SaveInventoryType.FALSE;
 
-			String toggle = (ManhuntGameRules.SAVE_INVENTORIES) ? "enabled" : "false";
+			String toggle = (in) ? "enabled" : "false";
 			command.getSource().getPlayerOrException().displayClientMessage(Component
 					.literal("Manhunt: saved inventories have been " + toggle), false);
+			return 0;
+		})))
+		.then(Commands.literal("keepAllEnd").executes((command) -> {
+			ManhuntGameRules.SAVE_INVENTORIES = ManhuntGameRules.SaveInventoryType.TRUE_KEEP_END;
+
+			command.getSource().getPlayerOrException().displayClientMessage(Component
+					.literal("Manhunt: saved inventories have been enabled & all items will be kept from end"),
+					false);
 			return 0;
 		})))
 		.then(Commands.literal("doHeadstart")

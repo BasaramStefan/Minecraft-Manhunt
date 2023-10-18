@@ -57,7 +57,7 @@ public class ModEvents {
 	public static class ForgeEvents {
 		public static class SuddenDeathWarning {
 			public static final Time HIGHLIGHT_CYCLE_DELAY = Time.TimeSeconds(30);
-			public static final Time HIGHLIGHT_CHANGE_DELAY_TIME = Time.TimeSeconds(0.1f);
+			public static final Time HIGHLIGHT_CHANGE_DELAY_TIME = Time.TimeSeconds(0.4f);
 
 			public static void broadcastMessage(PlayerList playerList, Time timeLeft) {
 				playerList.broadcastSystemMessage(Component
@@ -77,7 +77,7 @@ public class ModEvents {
 						}
 
 						counter++;
-						if (counter == 2) {
+						if (counter == 4) {
 							highlightCycleTimer.setTicks(0);
 							counter = 0;
 						}
@@ -130,7 +130,12 @@ public class ModEvents {
 			if (!Game.isInSession() || event.getPlayer().isCreative())
 				return;
 
-			if (Game.isHunterAtHeadstart(event.getPlayer())) {
+			if (Game.isHunterAtGameState(event.getPlayer(), Game.GameState.START) ||
+				Game.isHunterAtGameState(event.getPlayer(), Game.GameState.HEADSTART) ||
+				Game.isRunnerAtGameState(event.getPlayer(), Game.GameState.START) ||
+				Game.getGameState() == Game.GameState.PAUSE ||
+				Game.getGameState() == Game.GameState.RESUME)
+			{
 				event.setCanceled(true);
 				return;
 			}
@@ -149,12 +154,12 @@ public class ModEvents {
 		@SubscribeEvent
 		public static void onServerTick(TickEvent.ServerTickEvent event) {
 			if (Game.isInSession()) {
+
+				Game.get().update(event);
 				if (Game.getGameState() == Game.GameState.ERASE) {
 					Game.stopGame();
 					return;
 				}
-
-				Game.get().update(event);
 
 				// Update scoreboard
 				ServerScoreboard scoreboard = event.getServer().getScoreboard();
@@ -191,7 +196,6 @@ public class ModEvents {
 				}
 				else
 					System.out.println("ERROR: Game display scoreboard has null objective");
-
 			}
 		}
 
@@ -202,24 +206,25 @@ public class ModEvents {
 			if (!Game.isInSession())
 				return;
 
-			// TODO:
-			// Ender Dragon dies, runner wins
 			if (event.getEntity() instanceof EnderDragon) {
 				Game.get().runnerHasWon();
 				return;
 			}
-//
-//			if (event.getEntity().getName().getString().equals("Ender Dragon")) {
-//				System.out.println("dragon death called by string comparison");
-//				Game.get().runnerHasWon();
-//				return;
-//			}
 
 			if (event.getEntity() instanceof Player player) {
 				if (player.isCreative())
 					return;
 
-				if (ManhuntGameRules.SAVE_INVENTORIES) {
+				if (ManhuntGameRules.SAVE_INVENTORIES.canSave) {
+					// Directly save inventory
+					if (ManhuntGameRules.SAVE_INVENTORIES.keepAllEnd && player.getLevel().dimension() == Level.END) {
+						Inventory savedInventory = new Inventory(player);
+						savedInventory.replaceWith(player.getInventory());
+						player.getInventory().clearContent();
+						Game.get().saveInventory(player.getDisplayName().getString(), savedInventory);
+						return;
+					}
+
 					// Save the player's inventory, which is loaded on the first tick after respawn
 					Inventory savedInventory = new Inventory(player);
 					for (int slot = 0; slot < SLOT_COUNT; slot++) {
@@ -241,7 +246,7 @@ public class ModEvents {
 				}
 
 				// Deduct from the game time if the player is a runner
-				if (Game.get().isRunner(player)) {
+				if (ManhuntGameRules.TIME_LIMIT && Game.get().isRunner(player)) {
 					Game.get().applyDeathPenalty(player.getLevel());
 				}
 			}
@@ -249,14 +254,14 @@ public class ModEvents {
 
         @SubscribeEvent
         public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
-			if (!Game.isInSession())
+			if (!Game.isInSession() || event.isEndConquered())
 				return;
 
 			Player player = event.getEntity();
 			if (player.isCreative())
 				return;
 
-	        if (ManhuntGameRules.SAVE_INVENTORIES) {
+	        if (ManhuntGameRules.SAVE_INVENTORIES.canSave) {
 		        String playerName = player.getDisplayName().getString();
 		        if (!Game.get().isInventorySaved(playerName)) {
 			        player.displayClientMessage(Component

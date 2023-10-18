@@ -22,6 +22,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
 import org.jetbrains.annotations.NotNull;
 
@@ -157,6 +158,23 @@ public class DebugCommand {
 
 							command.getSource().getPlayerOrException().displayClientMessage(Component
 									.literal("HighlightCycleTimer:" + cycle.asSeconds() + " -/- HighlightChangeDelay" + highlight.asSeconds()), false);
+							return 0;
+				}))
+				.then(Commands.literal("PrintLastPlayerPositions")
+						.executes((command) -> {
+							Player player = command.getSource().getPlayerOrException();
+							String playerName = player.getName().getString();
+							Vec3[] positions = new Vec3[]{
+									Game.PlayerLastLocations.Overworld.getLastPosition(playerName),
+									Game.PlayerLastLocations.Nether.getLastPosition(playerName),
+									Game.PlayerLastLocations.End.getLastPosition(playerName)
+							};
+
+							player.displayClientMessage(Component.literal(
+									"(" + positions[0].x + ", " + positions[0].y + ", " + positions[0].z + ")   " +
+											"(" + positions[1].x + ", " + positions[1].y + ", " + positions[1].z + ")   " +
+											"(" + positions[2].x + ", " + positions[2].y + ", " + positions[2].z + ")"),
+									true);
 							return 0;
 				})));
 	}
