@@ -6,6 +6,7 @@ import net.bezeram.manhuntmod.game_manager.Game;
 import net.bezeram.manhuntmod.game_manager.ManhuntGameRules;
 import net.bezeram.manhuntmod.game_manager.Time;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
+import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -57,7 +58,7 @@ public class ModEvents {
 	public static class ForgeEvents {
 		public static class SuddenDeathWarning {
 			public static final Time HIGHLIGHT_CYCLE_DELAY = Time.TimeSeconds(30);
-			public static final Time HIGHLIGHT_CHANGE_DELAY_TIME = Time.TimeSeconds(0.4f);
+			public static final Time HIGHLIGHT_CHANGE_DELAY_TIME = Time.TimeSeconds(0.25f);
 
 			public static void broadcastMessage(PlayerList playerList, Time timeLeft) {
 				playerList.broadcastSystemMessage(Component
@@ -96,7 +97,8 @@ public class ModEvents {
 
 		@SubscribeEvent
 		public static void disableExplosives(PlayerInteractEvent.RightClickBlock event) {
-			if (!Game.isInSession()
+			if (event.getSide().isClient()
+					|| !Game.isInSession()
 					|| event.getEntity().isCreative()
 					|| !ManhuntGameRules.DISABLE_RESPAWN_BLOCK_EXPLOSION)
 				return;
@@ -127,7 +129,7 @@ public class ModEvents {
 
 		@SubscribeEvent
 		public static void disableBreakingBlocks(BlockEvent.BreakEvent event) {
-			if (!Game.isInSession() || event.getPlayer().isCreative())
+			if (event.getLevel().isClientSide() || !Game.isInSession() || event.getPlayer().isCreative())
 				return;
 
 			if (Game.isHunterAtGameState(event.getPlayer(), Game.GameState.START) ||
@@ -157,7 +159,7 @@ public class ModEvents {
 
 				Game.get().update(event);
 				if (Game.getGameState() == Game.GameState.ERASE) {
-					Game.stopGame();
+					Game.get().stopGame();
 					return;
 				}
 
@@ -203,7 +205,7 @@ public class ModEvents {
 		// Save player's inventory in game class
 		// Destroy designated items in order to not drop them
 		public static void onEntityDeath(LivingDeathEvent event) {
-			if (!Game.isInSession())
+			if (event.getEntity().getLevel().isClientSide() || !Game.isInSession())
 				return;
 
 			if (event.getEntity() instanceof EnderDragon) {
@@ -254,7 +256,7 @@ public class ModEvents {
 
         @SubscribeEvent
         public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
-			if (!Game.isInSession() || event.isEndConquered())
+			if (event.getEntity().getLevel().isClientSide() || !Game.isInSession() || event.isEndConquered())
 				return;
 
 			Player player = event.getEntity();
@@ -272,6 +274,11 @@ public class ModEvents {
 
 		        player.getInventory().replaceWith(Game.get().getInventory(playerName));
 	        }
+		}
+
+		@SubscribeEvent
+		public static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
+//			HunterCompassItem.onPlayerChangedDimension();
 		}
 
 		public static final int SLOT_COUNT = 41;

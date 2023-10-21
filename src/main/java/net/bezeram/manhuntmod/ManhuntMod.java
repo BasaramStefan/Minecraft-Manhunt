@@ -1,6 +1,13 @@
 package net.bezeram.manhuntmod;
 
+import net.bezeram.manhuntmod.game_manager.Game;
 import net.bezeram.manhuntmod.item.ModItems;
+import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
+import net.bezeram.manhuntmod.networking.ModMessages;
+import net.minecraft.client.renderer.item.CompassItemPropertyFunction;
+import net.minecraft.client.renderer.item.ItemProperties;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.CreativeModeTabEvent;
@@ -11,6 +18,8 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLanguageProvider;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegisterEvent;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(ManhuntMod.MOD_ID)
@@ -26,15 +35,16 @@ public class ManhuntMod {
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
 
-        // Register ourselves for server and other game events we are interested in
-        MinecraftForge.EVENT_BUS.register(this);
 
         // Register the item to a creative tab
         modEventBus.addListener(this::addCreative);
+
+        // Register ourselves for server and other game events we are interested in
+        MinecraftForge.EVENT_BUS.register(this);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
-
+        ModMessages.register();
     }
 
     private void addCreative(CreativeModeTabEvent.BuildContents event) {
@@ -45,6 +55,13 @@ public class ManhuntMod {
     public static class ClientModEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
+            event.enqueueWork(() -> {
+                ItemProperties.register(ModItems.HUNTER_COMPASS.get(),
+                        new ResourceLocation(ManhuntMod.MOD_ID, "angle"),
+                        new CompassItemPropertyFunction((clientLevel, itemStack, entity) ->
+                            null
+                ));
+            });
         }
     }
 }

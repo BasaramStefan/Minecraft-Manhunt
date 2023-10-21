@@ -4,15 +4,20 @@ import com.mojang.brigadier.CommandDispatcher;
 import net.bezeram.manhuntmod.game_manager.Game;
 import net.bezeram.manhuntmod.game_manager.ManhuntGameRules;
 import net.bezeram.manhuntmod.game_manager.TimerManager;
+import net.bezeram.manhuntmod.item.ModItems;
+import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.TeamArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
@@ -60,7 +65,17 @@ public class ManhuntCommand {
 						// If this isn't false, it messes up the mechanic of safe death items
 						gameRules.getRule(GameRules.RULE_KEEPINVENTORY).set(false, command.getSource().getServer());
 
-						Game.init(teamRunner, teamHunter, command.getSource().getServer().getPlayerList());
+						MinecraftServer server = command.getSource().getServer();
+						Game.init(teamRunner, teamHunter, server.getPlayerList(), server);
+
+						for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+							if (Game.get().isHunter(player)) {
+								ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
+								HunterCompassItem.addTags(player.getLevel(), compass.getOrCreateTag());
+								if (!player.getInventory().add(compass))
+									player.drop(compass, false);
+							}
+						}
 					}
 
 					command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
@@ -108,7 +123,17 @@ public class ManhuntCommand {
 					// If this isn't false, it messes up the mechanic of safe death items
 					gameRules.getRule(GameRules.RULE_KEEPINVENTORY).set(false, command.getSource().getServer());
 
-					Game.init(teamRunner, teamHunter, command.getSource().getServer().getPlayerList());
+					MinecraftServer server = command.getSource().getServer();
+					Game.init(teamRunner, teamHunter, server.getPlayerList(), server);
+
+					for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+						if (Game.get().isHunter(player)) {
+							ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
+							HunterCompassItem.addTags(player.getLevel(), compass.getOrCreateTag());
+							if (!player.getInventory().add(compass))
+								player.drop(compass, false);
+						}
+					}
 
 					command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
 								.literal("Starting game in: " + (int)Game.get().getStartDelay().asSeconds() + " " +
@@ -120,7 +145,7 @@ public class ManhuntCommand {
 		.then(Commands.literal("stop")
 				.executes((command) -> {
 					if (Game.isInSession()) {
-						Game.stopGame();
+						Game.get().stopGame();
 
 						ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
 						PlayerTeam playerTeam = scoreboard.getPlayerTeam("SuddenDeath");
@@ -200,6 +225,13 @@ public class ManhuntCommand {
 
 	private static void setupScoreboard(ServerScoreboard scoreboard, PlayerTeam teamRunner, PlayerTeam teamHunter) {
 		Objective timer = scoreboard.getObjective("TimeLeft");
+		scoreboard.resetPlayerScore("PAUSED", timer);
+		scoreboard.resetPlayerScore("STOPPED", timer);
+		scoreboard.resetPlayerScore("RUNNER WINS", timer);
+		scoreboard.resetPlayerScore("RUNNERS WIN", timer);
+		scoreboard.resetPlayerScore("HUNTER WINS", timer);
+		scoreboard.resetPlayerScore("HUNTERS WIN", timer);
+
 		if (timer == null) {
 			Component sidebar = Component.translatable(ServerScoreboard.getDisplaySlotName(1));
 			ObjectiveCriteria.RenderType renderType = ObjectiveCriteria.RenderType.INTEGER;
@@ -208,15 +240,28 @@ public class ManhuntCommand {
 			timer = scoreboard.addObjective("TimeLeft", playerKillCount, sidebar, renderType);
 		}
 
+
+		// Display teams
+		int score = 1;
+		for (String hunter : teamHunter.getPlayers()) {
+			scoreboard.getOrCreatePlayerScore(hunter, timer).setScore(score);
+			score++;
+		}
+
+		for (String runner : teamRunner.getPlayers()) {
+			scoreboard.getOrCreatePlayerScore(runner, timer).setScore(score);
+			score++;
+		}
+
 		if (ManhuntGameRules.TIME_LIMIT) {
 			timer.setDisplayName(Component.literal("Time / Kills").withStyle(ChatFormatting.GOLD));
 
 			if (TimerManager.getGameTime().asMinutes() > 1) {
-				scoreboard.getOrCreatePlayerScore("Minutes", timer);
+				scoreboard.getOrCreatePlayerScore("Minutes", timer).setScore(score);
 				scoreboard.resetPlayerScore("Seconds", timer);
 			}
 			else {
-				scoreboard.getOrCreatePlayerScore("Seconds", timer);
+				scoreboard.getOrCreatePlayerScore("Seconds", timer).setScore(score);
 				scoreboard.resetPlayerScore("Minutes", timer);
 			}
 		}
@@ -225,15 +270,6 @@ public class ManhuntCommand {
 			scoreboard.resetPlayerScore("Seconds", timer);
 			scoreboard.resetPlayerScore("Minutes", timer);
 			timer.setDisplayName(Component.literal("Kills").withStyle(ChatFormatting.GOLD));
-		}
-
-		// Display teams
-		for (String runner : teamRunner.getPlayers()) {
-			scoreboard.getOrCreatePlayerScore(runner, timer).setScore(0);
-		}
-
-		for (String hunter : teamHunter.getPlayers()) {
-			scoreboard.getOrCreatePlayerScore(hunter, timer).setScore(0);
 		}
 
 		scoreboard.setDisplayObjective(1, scoreboard.getObjective("TimeLeft"));

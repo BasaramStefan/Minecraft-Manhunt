@@ -6,6 +6,9 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
@@ -16,6 +19,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraftforge.event.TickEvent;
 
@@ -24,22 +28,35 @@ import java.util.*;
 public class Game {
 	private static Game GAME_INSTANCE = null;
 
-	private Game(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList) {
+	private Game(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList, MinecraftServer server) {
 		this.teamRunner = teamRunner;
 		this.teamHunter = teamHunter;
+		this.listHunters = new ServerPlayer[teamHunter.getPlayers().size()];
+		this.listRunners = new ServerPlayer[teamRunner.getPlayers().size()];
+		this.server = server;
 		currentState = GameState.START;
 		prevState = currentState;
 		ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
 
-		for (ServerPlayer player : playerList.getPlayers())
-			if (isHunter(player))
+		int indexHunters = 0;
+		int indexRunners = 0;
+		for (ServerPlayer player : playerList.getPlayers()) {
+			if (isHunter(player)) {
 				huntersStartCoords.put(player.getName().getString(), player.getPosition(1));
-			else if (isRunner(player))
+				listHunters[indexHunters++] = player;
+			}
+			else if (isRunner(player)) {
 				runnersStartCoords.put(player.getName().getString(), player.getPosition(1));
+				listRunners[indexRunners++] = player;
+			}
+		}
+
+		this.playersList = new PlayersList(listRunners, listHunters);
 	}
 
-	public static void init(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList) {
-		GAME_INSTANCE = new Game(teamRunner, teamHunter, playerList);
+	public static void init(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList,
+	                        MinecraftServer server) {
+		GAME_INSTANCE = new Game(teamRunner, teamHunter, playerList, server);
 	}
 
 	public static boolean isInSession() {
@@ -63,10 +80,18 @@ public class Game {
 		currentState = state;
 	}
 
-	public static void stopGame() {
+	public void stopGame() {
+		ServerScoreboard scoreboard = server.getScoreboard();
+		Objective objective = scoreboard.getObjective("TimeLeft");
+		assert objective != null;
+		scoreboard.resetPlayerScore("PAUSED", objective);
+		scoreboard.getOrCreatePlayerScore("STOPPED", objective);
+
 		currentState = GameState.NULL;
 		GAME_INSTANCE = null;
 	}
+
+	public MinecraftServer getServer() { return server; }
 
 	public void applyDeathPenalty(Level level) {
 		switch (ManhuntGameRules.DEATH_PENALTY) {
@@ -180,11 +205,21 @@ public class Game {
 		for (ServerPlayer player : playerList.getPlayers())
 			playersPrevCoords.put(player.getName().getString(), player.getPosition(1));
 
+		ServerScoreboard scoreboard = server.getScoreboard();
+		Objective objective = scoreboard.getObjective("TimeLeft");
+		assert objective != null;
+		scoreboard.getOrCreatePlayerScore("PAUSED", objective);
+
 		prevState = currentState;
 		currentState = GameState.PAUSE;
 	}
 
 	public void resumeGame() {
+		ServerScoreboard scoreboard = server.getScoreboard();
+		Objective objective = scoreboard.getObjective("TimeLeft");
+		assert objective != null;
+		scoreboard.resetPlayerScore("PAUSED", objective);
+
 		currentState = GameState.RESUME;
 	}
 
@@ -275,26 +310,46 @@ public class Game {
 				PlayerTeam loserTeam  = (!runnerWins) ? teamRunner : teamHunter;
 
 				String feedbackServer = "";
-				if (winnerTeam.getPlayers().size() == 1)
+				boolean team;
+				if (winnerTeam.getPlayers().size() == 1) {
 					feedbackServer = winnerTeam.getDisplayName().getString() + " has won the game!";
-				else
+					team = false;
+				}
+				else {
 					feedbackServer = winnerTeam.getDisplayName().getString() + " team has won the game!";
+					team = true;
+				}
 				playerList.broadcastSystemMessage(Component.literal(feedbackServer), false);
 
 				// TODO: Play sounds correctly, this bs does not work
-				for (String playerName : winnerTeam.getPlayers()) {
-					ServerPlayer player = playerList.getPlayerByName(playerName);
+//				for (String playerName : winnerTeam.getPlayers()) {
+//					ServerPlayer player = playerList.getPlayerByName(playerName);
+//
+//					if (player != null)
+//						player.playSound(SoundEvents.PLAYER_LEVELUP);
+//				}
+//
+//				for (String playerName : loserTeam.getPlayers()) {
+//					ServerPlayer player = playerList.getPlayerByName(playerName);
+//
+//					if (player != null)
+//						player.playSound(SoundEvents.PILLAGER_CELEBRATE);
+//				}
 
-					if (player != null)
-						player.playSound(SoundEvents.PLAYER_LEVELUP);
+				ServerScoreboard scoreboard = event.getServer().getScoreboard();
+				Objective objective = scoreboard.getObjective("TimeLeft");
+				String victoriousTeamDisplay = (runnerWins) ? "RUNNER" : "HUNTER";
+				if (team) {
+					victoriousTeamDisplay += "S";
+					victoriousTeamDisplay += " WIN";
+				}
+				else {
+					victoriousTeamDisplay += " WINS";
 				}
 
-				for (String playerName : loserTeam.getPlayers()) {
-					ServerPlayer player = playerList.getPlayerByName(playerName);
-
-					if (player != null)
-						player.playSound(SoundEvents.PILLAGER_CELEBRATE);
-				}
+				assert objective != null;
+				scoreboard.getOrCreatePlayerScore(victoriousTeamDisplay, objective);
+				scoreboard.addPlayerToTeam(victoriousTeamDisplay, winnerTeam);
 
 				setGameState(GameState.ERASE);
 				ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
@@ -305,6 +360,9 @@ public class Game {
 
 	public PlayerTeam getTeamRunner() { return teamRunner; }
 	public PlayerTeam getTeamHunter() { return teamHunter; }
+	public ServerPlayer[] getHuntersArray() { return listHunters; }
+	public ServerPlayer[] getRunnersArray() { return listRunners; }
+	public PlayersList getPlayers() { return playersList; }
 
 	public static boolean isHunterAtGameState(Player player, GameState targetGameState) {
 		if (player.getTeam() == null || currentState != targetGameState)
@@ -364,6 +422,10 @@ public class Game {
 		return false;
 	}
 
+	public boolean isInGame(Player player) {
+		return isRunner(player) || isHunter(player);
+	}
+
 	private void lockHuntersPos(TickEvent.ServerTickEvent event) {
 		PlayerList playerList = event.getServer().getPlayerList();
 		for (ServerPlayer player : playerList.getPlayers())
@@ -419,6 +481,133 @@ public class Game {
 
 	private final PlayerTeam teamRunner;
 	private final PlayerTeam teamHunter;
+	private final ServerPlayer[] listHunters;
+	private final ServerPlayer[] listRunners;
+	private final PlayersList playersList;
+
+	public static class PlayersList {
+		PlayersList(ServerPlayer[] runners, ServerPlayer[] hunters) {
+			int runnersCount = runners.length;
+			int huntersCount = hunters.length;
+			this.runnerCount = runnersCount;
+			this.playerArray = new ServerPlayer[runnersCount + huntersCount];
+			this.prevRunnerIndex = 0;
+			this.prevHunterIndex = runnersCount;
+
+			int indexPlayers = 0;
+			for (ServerPlayer runner : runners) {
+				playerArray[indexPlayers] = runner;
+				indexPlayers++;
+			}
+
+			for (ServerPlayer hunter : hunters) {
+				playerArray[indexPlayers] = hunter;
+				indexPlayers++;
+			}
+		}
+		
+		public int cycleRunners(int ID) {
+			ID = (ID + 1) % runnerCount;
+			return ID;
+		}
+		
+		public int cycleHunters(int ID) {
+			if (ID < runnerCount)
+				return runnerCount;
+			return (ID + 1 - runnerCount) % getHunterCount();
+		}
+
+		public boolean samePlayer(Player player, int ID2) {
+			return player.getUUID() == playerArray[ID2].getUUID();
+		}
+		
+		public int getRunnerCount() { return runnerCount; }
+		public int getHunterCount() { return playerArray.length - runnerCount; }
+		public int getPlayerCount() { return playerArray.length; }
+		public int getFirstRunnerID() { return 0; }
+		public int getFirstHunterID() { return runnerCount; }
+
+		public ServerPlayer getPlayer(int index) { return playerArray[index]; }
+		public ServerPlayer getFirstRunner() { return playerArray[0]; }
+		public ServerPlayer getFirstHunter() { return playerArray[runnerCount]; }
+
+		public int getIDByName(String playerName) {
+			for (int i = 0; i < playerArray.length; i++)
+				if (playerArray[i].getName().getString().equals(playerName))
+					return i;
+			return -1;
+		}
+
+		public boolean isRunner(int ID) { return ID >= 0 && ID < runnerCount; }
+		public boolean isHunter(int ID) { return ID >= runnerCount && ID < playerArray.length; }
+
+		public void setPrevHunterID(int index) {
+			prevHunterIndex = index;
+		}
+
+		public void setPrevRunnerID(int index) {
+			prevRunnerIndex = index;
+		}
+
+		public int getPrevHunterID() {
+			return prevHunterIndex;
+		}
+
+		public int getPrevRunnerID() {
+			return prevRunnerIndex;
+		}
+
+		private final ServerPlayer[] playerArray;
+		private final int runnerCount;
+
+		private int prevRunnerIndex;
+		private int prevHunterIndex;
+	}
+
+	public static int getDimensionID(ResourceKey<Level> dimension) {
+		if (dimension == Level.OVERWORLD)
+			return 0;
+		if (dimension == Level.NETHER)
+			return 1;
+		if (dimension == Level.END)
+			return 2;
+		return -1;
+	}
+
+	public static int getDimensionIDByName(String name) {
+		switch (name) {
+			case "Overworld" -> {
+				return 0;
+			}
+			case "Nether" -> {
+				return 1;
+			}
+			case "End" -> {
+				return 2;
+			}
+			default -> {
+				return -1;
+			}
+		}
+	}
+
+	public static String getDimensionNameByID(int ID) {
+		switch (ID) {
+			case 0 -> {
+				return "Overworld";
+			}
+			case 1 -> {
+				return "Nether";
+			}
+			case 2 -> {
+				return "End";
+			}
+			default -> {
+				return null;
+			}
+		}
+	}
+
 	private final Hashtable<String, Vec3> huntersStartCoords = new Hashtable<>();
 	private final Hashtable<String, Vec3> runnersStartCoords = new Hashtable<>();
 	private final Hashtable<String, Vec3> playersPrevCoords = new Hashtable<>();
@@ -437,13 +626,21 @@ public class Game {
 				String name = player.getName().getString();
 				Vec3 newPosition = player.getPosition(0);
 
-				if (level.dimension() == Level.OVERWORLD)
-					PlayerLastLocations.Overworld.update(name, newPosition);
-				else if (level.dimension() == Level.NETHER)
-					PlayerLastLocations.Nether.update(name, newPosition);
-				else if (level.dimension() == Level.END)
-					PlayerLastLocations.End.update(name, newPosition);
+				PlayerLastLocations location = getByDimension(level.dimension());
+
+				if (location != null)
+					location.update(name, newPosition);
 			}
+		}
+
+		public static PlayerLastLocations getByDimension(ResourceKey<Level> dimension) {
+			if (dimension == Level.OVERWORLD)
+				return PlayerLastLocations.Overworld;
+			else if (dimension == Level.NETHER)
+				return PlayerLastLocations.Nether;
+			else if (dimension == Level.END)
+				return PlayerLastLocations.End;
+			return null;
 		}
 
 		public Vec3 getLastPosition(String playerName) {
@@ -457,4 +654,6 @@ public class Game {
 
 	private final TimerManager timer = new TimerManager();
 	private final Hashtable<Player, DedicatedRespawnsManager> respawnerMap = new Hashtable<>();
+
+	private MinecraftServer server;
 }

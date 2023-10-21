@@ -6,6 +6,7 @@ import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game_manager.Game;
 import net.bezeram.manhuntmod.game_manager.Time;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
+import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
@@ -15,6 +16,7 @@ import net.minecraft.commands.arguments.blocks.BlockStateArgument;
 import net.minecraft.commands.arguments.item.ItemArgument;
 import net.minecraft.commands.arguments.item.ItemPredicateArgument;
 import net.minecraft.data.registries.VanillaRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -175,6 +177,57 @@ public class DebugCommand {
 											"(" + positions[1].x + ", " + positions[1].y + ", " + positions[1].z + ")   " +
 											"(" + positions[2].x + ", " + positions[2].y + ", " + positions[2].z + ")"),
 									true);
+							return 0;
+				}))
+				.then(Commands.literal("GetCompassTags")
+						.executes((command) -> {
+							if (!Game.isInSession())
+								return 1;
+
+							Player player = command.getSource().getPlayerOrException();
+							ItemStack itemStack = player.getInventory().getItem(0);
+
+							if (itemStack.getItem() instanceof HunterCompassItem) {
+								CompoundTag tag = itemStack.getTag();
+								if (tag == null) {
+									player.displayClientMessage(Component.literal("Compass has no tags"), false);
+									return 1;
+								}
+
+								int trackedPlayerID = tag.getInt(HunterCompassItem.TAG_TARGET_PLAYER);
+								boolean trackingPlayer = tag.getBoolean(HunterCompassItem.TAG_TARGET_TRACKED);
+								ServerPlayer trackedPlayer = Game.get().getPlayers().getPlayer(trackedPlayerID);
+								String trackedPlayerName = trackedPlayer.getName().getString();
+
+								player.displayClientMessage(Component.literal("Tracking: " + trackedPlayerName), false);
+								player.displayClientMessage(Component.literal("Tracking: " + trackingPlayer), false);
+							}
+							else
+								player.displayClientMessage(Component.literal(
+										"Item in slot 0 is not a hunter compass"), false);
+
+						return 0;
+				}))
+				.then(Commands.literal("SetHoverName")
+						.executes((command) -> {
+							if (!Game.isInSession())
+								return 1;
+
+							Player player = command.getSource().getPlayerOrException();
+							ItemStack itemStack = player.getInventory().getItem(0);
+
+							itemStack.setHoverName(Component.literal("Hello World!").withStyle(ChatFormatting.BLUE));
+							return 0;
+				}))
+				.then(Commands.literal("ResetHoverName")
+						.executes((command) -> {
+							if (!Game.isInSession())
+								return 1;
+
+							Player player = command.getSource().getPlayerOrException();
+							ItemStack itemStack = player.getInventory().getItem(0);
+
+							itemStack.resetHoverName();
 							return 0;
 				})));
 	}

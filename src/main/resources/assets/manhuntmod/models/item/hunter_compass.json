@@ -1,0 +1,41 @@
+{
+    "parent": "item/generated",
+    "textures": {
+        "layer0": "manhuntmod:item/compass_16"
+    },
+    "overrides": [
+        { "predicate": { "manhuntmod:angle": 0.000000 }, "model": "manhuntmod:item/hunter_compass" },
+        { "predicate": { "manhuntmod:angle": 0.015625 }, "model": "manhuntmod:item/compass_17" },
+        { "predicate": { "manhuntmod:angle": 0.046875 }, "model": "manhuntmod:item/compass_18" },
+        { "predicate": { "manhuntmod:angle": 0.078125 }, "model": "manhuntmod:item/compass_19" },
+        { "predicate": { "manhuntmod:angle": 0.109375 }, "model": "manhuntmod:item/compass_20" },
+        { "predicate": { "manhuntmod:angle": 0.140625 }, "model": "manhuntmod:item/compass_21" },
+        { "predicate": { "manhuntmod:angle": 0.171875 }, "model": "manhuntmod:item/compass_22" },
+        { "predicate": { "manhuntmod:angle": 0.203125 }, "model": "manhuntmod:item/compass_23" },
+        { "predicate": { "manhuntmod:angle": 0.234375 }, "model": "manhuntmod:item/compass_24" },
+        { "predicate": { "manhuntmod:angle": 0.265625 }, "model": "manhuntmod:item/compass_25" },
+        { "predicate": { "manhuntmod:angle": 0.296875 }, "model": "manhuntmod:item/compass_26" },
+        { "predicate": { "manhuntmod:angle": 0.328125 }, "model": "manhuntmod:item/compass_27" },
+        { "predicate": { "manhuntmod:angle": 0.359375 }, "model": "manhuntmod:item/compass_28" },
+        { "predicate": { "manhuntmod:angle": 0.390625 }, "model": "manhuntmod:item/compass_29" },
+        { "predicate": { "manhuntmod:angle": 0.421875 }, "model": "manhuntmod:item/compass_30" },
+        { "predicate": { "manhuntmod:angle": 0.453125 }, "model": "manhuntmod:item/compass_31" },
+        { "predicate": { "manhuntmod:angle": 0.484375 }, "model": "manhuntmod:item/compass_00" },
+        { "predicate": { "manhuntmod:angle": 0.515625 }, "model": "manhuntmod:item/compass_01" },
+        { "predicate": { "manhuntmod:angle": 0.546875 }, "model": "manhuntmod:item/compass_02" },
+        { "predicate": { "manhuntmod:angle": 0.578125 }, "model": "manhuntmod:item/compass_03" },
+        { "predicate": { "manhuntmod:angle": 0.609375 }, "model": "manhuntmod:item/compass_04" },
+        { "predicate": { "manhuntmod:angle": 0.640625 }, "model": "manhuntmod:item/compass_05" },
+        { "predicate": { "manhuntmod:angle": 0.671875 }, "model": "manhuntmod:item/compass_06" },
+        { "predicate": { "manhuntmod:angle": 0.703125 }, "model": "manhuntmod:item/compass_07" },
+        { "predicate": { "manhuntmod:angle": 0.734375 }, "model": "manhuntmod:item/compass_08" },
+        { "predicate": { "manhuntmod:angle": 0.765625 }, "model": "manhuntmod:item/compass_09" },
+        { "predicate": { "manhuntmod:angle": 0.796875 }, "model": "manhuntmod:item/compass_10" },
+        { "predicate": { "manhuntmod:angle": 0.828125 }, "model": "manhuntmod:item/compass_11" },
+        { "predicate": { "manhuntmod:angle": 0.859375 }, "model": "manhuntmod:item/compass_12" },
+        { "predicate": { "manhuntmod:angle": 0.890625 }, "model": "manhuntmod:item/compass_13" },
+        { "predicate": { "manhuntmod:angle": 0.921875 }, "model": "manhuntmod:item/compass_14" },
+        { "predicate": { "manhuntmod:angle": 0.953125 }, "model": "manhuntmod:item/compass_15" },
+        { "predicate": { "manhuntmod:angle": 0.984375 }, "model": "manhuntmod:item/hunter_compass" }
+    ]
+}
