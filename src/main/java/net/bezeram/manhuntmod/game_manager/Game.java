@@ -2,6 +2,7 @@ package net.bezeram.manhuntmod.game_manager;
 
 import com.mojang.brigadier.context.CommandContext;
 import net.bezeram.manhuntmod.events.ModEvents;
+import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.nbt.ListTag;
@@ -352,9 +353,11 @@ public class Game {
 				scoreboard.addPlayerToTeam(victoriousTeamDisplay, winnerTeam);
 
 				setGameState(GameState.ERASE);
-				ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
 			}
-			case ERASE -> {}
+			case ERASE -> {
+				ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
+				HunterCompassItem.clearCompassList();
+			}
 		}
 	}
 
@@ -514,7 +517,7 @@ public class Game {
 		public int cycleHunters(int ID) {
 			if (ID < runnerCount)
 				return runnerCount;
-			return (ID + 1 - runnerCount) % getHunterCount();
+			return (ID + 1 - runnerCount) % getHunterCount() + runnerCount;
 		}
 
 		public boolean samePlayer(Player player, int ID2) {

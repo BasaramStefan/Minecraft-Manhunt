@@ -278,7 +278,7 @@ public class ModEvents {
 
 		@SubscribeEvent
 		public static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
-//			HunterCompassItem.onPlayerChangedDimension();
+			HunterCompassItem.onPlayerChangeDimension(event.getEntity().getName().getString(), event.getEntity().getLevel());
 		}
 
 		public static final int SLOT_COUNT = 41;

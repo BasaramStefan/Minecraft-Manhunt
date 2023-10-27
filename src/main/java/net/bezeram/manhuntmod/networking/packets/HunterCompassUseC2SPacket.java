@@ -53,7 +53,7 @@ public class HunterCompassUseC2SPacket {
 			}
 
 			BlockPos playerBlockPos = new BlockPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
-			HunterCompassItem.addTags(level, itemUsed.getOrCreateTag());
+			HunterCompassItem.addOrUpdateTags(level, itemUsed.getOrCreateTag());
 			CompoundTag tag = itemUsed.getTag();
 
 			level.playSound((Player)null, playerBlockPos, SoundEvents.LODESTONE_COMPASS_LOCK, SoundSource.PLAYERS,
@@ -85,11 +85,11 @@ public class HunterCompassUseC2SPacket {
 
 					// Cycle again
 					newID = playerList.cycleHunters(targetPlayerId);
-					String newTargetName = playerList.getPlayer(newID).getName().getString();
-					itemUsed.setHoverName(Component.literal("Pointing to " + newTargetName));
 				}
 
+				String newTargetName = playerList.getPlayer(newID).getName().getString();
 				tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
+				itemUsed.setHoverName(Component.literal("Pointing to " + newTargetName));
 			}
 		});
 

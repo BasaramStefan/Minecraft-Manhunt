@@ -16,7 +16,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.scores.Objective;
@@ -27,8 +26,8 @@ public class ManhuntCommand {
 	public ManhuntCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("Manhunt")
 		.then(Commands.literal("teams")
-		.then(Commands.argument("teamRunner", TeamArgument.team())
-		.then(Commands.argument("teamHunter", TeamArgument.team())
+		.then(Commands.argument("runnerTeam", TeamArgument.team())
+		.then(Commands.argument("hunterTeam", TeamArgument.team())
 				.executes((command) -> {
 					if (Game.isInSession()) {
 						command.getSource().getPlayerOrException().sendSystemMessage(Component
@@ -37,8 +36,8 @@ public class ManhuntCommand {
 					}
 
 					// Extract arguments from command
-					PlayerTeam teamRunner = TeamArgument.getTeam(command, "teamRunner");
-					PlayerTeam teamHunter = TeamArgument.getTeam(command, "teamHunter");
+					PlayerTeam teamRunner = TeamArgument.getTeam(command, "runnerTeam");
+					PlayerTeam teamHunter = TeamArgument.getTeam(command, "hunterTeam");
 
 					String teamRunnerName = teamRunner.getName();
 					String teamHunterName = teamHunter.getName();
@@ -71,14 +70,22 @@ public class ManhuntCommand {
 						for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 							if (Game.get().isHunter(player)) {
 								ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
-								HunterCompassItem.addTags(player.getLevel(), compass.getOrCreateTag());
+								HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
 								if (!player.getInventory().add(compass))
 									player.drop(compass, false);
+								HunterCompassItem.addOrUpdateCompass(compass,
+											Game.getDimensionID(player.getLevel().dimension()));
 							}
 						}
-					}
 
-					command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
+						command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
+										.literal("Starting game in: " + (int)Game.get().getStartDelay().asSeconds() + " " +
+												"seconds")
+										.withStyle(ChatFormatting.GREEN),
+								false);
+					}
+					else
+						command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
 							.literal(pack.feedback).withStyle(pack.format), false);
 
 					return 0;
@@ -129,9 +136,11 @@ public class ManhuntCommand {
 					for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 						if (Game.get().isHunter(player)) {
 							ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
-							HunterCompassItem.addTags(player.getLevel(), compass.getOrCreateTag());
+							HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
 							if (!player.getInventory().add(compass))
 								player.drop(compass, false);
+							HunterCompassItem.addOrUpdateCompass(compass,
+									Game.getDimensionID(player.getLevel().dimension()));
 						}
 					}
 
@@ -316,7 +325,7 @@ public class ManhuntCommand {
 			return new ValidateType("Hunter team (" + teamHunter.getName() + ") is empty", false,
 					ValidateType.FAILURE_FORMAT);
 
-		return new ValidateType("Starting game in " + (int)Game.get().getStartDelay().asSeconds() + " seconds", true,
+		return new ValidateType("Teams valid", true,
 				ValidateType.SUCCESS_FORMAT);
 	}
 
