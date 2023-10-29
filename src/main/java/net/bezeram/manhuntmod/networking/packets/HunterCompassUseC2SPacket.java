@@ -71,7 +71,8 @@ public class HunterCompassUseC2SPacket {
 				tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
 
 				String newTargetName = playerList.getPlayer(newID).getName().getString();
-				itemUsed.setHoverName(Component.literal("Pointing to " + newTargetName));
+				itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
+				player.displayClientMessage(Component.literal("Tracking " + newTargetName), true);
 			}
 			else {
 				// Toggling to hunter
@@ -84,12 +85,13 @@ public class HunterCompassUseC2SPacket {
 					}
 
 					// Cycle again
-					newID = playerList.cycleHunters(targetPlayerId);
+					newID = playerList.cycleHunters(newID);
 				}
 
 				String newTargetName = playerList.getPlayer(newID).getName().getString();
 				tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
-				itemUsed.setHoverName(Component.literal("Pointing to " + newTargetName));
+				itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
+				player.displayClientMessage(Component.literal("Tracking " + newTargetName), true);
 			}
 		});
 

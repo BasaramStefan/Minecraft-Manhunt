@@ -5,8 +5,10 @@ import net.bezeram.manhuntmod.networking.ModMessages;
 import net.bezeram.manhuntmod.networking.packets.HunterCompassUseC2SPacket;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
@@ -18,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.UUID;
 
 public class HunterCompassItem extends Item {
 	/**
@@ -42,6 +45,9 @@ public class HunterCompassItem extends Item {
 		CompoundTag tag = itemStack.getTag();
 		return tag != null && tag.contains(TAG_TARGET_TRACKED) && tag.getBoolean(TAG_TARGET_TRACKED);
 	}
+
+	@Override
+	public boolean isFoil(ItemStack itemStack) { return isCompassTracking(itemStack) || super.isFoil(itemStack); }
 
 	public static void addOrUpdateTags(Level compassLevel, CompoundTag tag) {
 		if (compassLevel.isClientSide || !Game.isInSession())
@@ -83,26 +89,62 @@ public class HunterCompassItem extends Item {
 		return InteractionResultHolder.fail(itemUsed);
 	}
 
-	public static void onPlayerChangeDimension(String playerName, Level level) {
+	public static void onPlayerChangeDimension(ServerPlayer traveler, Level newLevel) {
 		if (!Game.isInSession())
 			return;
 
-		int dimensionID = Game.getDimensionID(level.dimension());
-		int playerID = Game.get().getPlayers().getIDByName(playerName);
-		if (playerID != -1) {
-			for (ItemStack key : allCompasses.keySet()) {
-				HunterCompassItem.addOrUpdateTags(level, key.getOrCreateTag());
-				HunterCompassItem.addOrUpdateCompass(key, dimensionID);
+		// If the current compass checked belongs to the traveler, update its dimension before updating the tag
+		UUID travelerUUID = traveler.getUUID();
+		int newDimensionID = Game.getDimensionID(newLevel.dimension());
+		if (Game.get().isHunter(traveler)) {
+			for (ItemStack itemStack : traveler.getInventory().items) {
+				if (itemStack.getItem() instanceof HunterCompassItem) {
+					HunterCompassItem.addOrUpdateTags(newLevel, itemStack.getOrCreateTag());
+					StaticCompassType value = allCompasses.get(travelerUUID);
+					value.compassRef = itemStack;
+					value.dimensionID = newDimensionID;
+				}
 			}
+		}
+
+		// Iterate over all compasses and update their PLAYER_TRACKED tag.
+		for (UUID key : allCompasses.keySet()) {
+			StaticCompassType value = allCompasses.get(key);
+
+			HunterCompassItem.addOrUpdateTags(newLevel, value.compassRef.getOrCreateTag());
+			allCompasses.put(travelerUUID, value);
 		}
 	}
 
-	public static void addOrUpdateCompass(ItemStack itemStack, int dimensionID) {
-		allCompasses.put(itemStack, dimensionID);
+	public static void putGlobalCompass(UUID playerUUID, ItemStack compass, int dimensionID) {
+		if (allCompasses.containsKey(playerUUID)) {
+			StaticCompassType value = allCompasses.get(playerUUID);
+			value.compassRef = compass;
+			value.dimensionID = dimensionID;
+			allCompasses.put(playerUUID, value);
+		}
+
+		allCompasses.put(playerUUID, new StaticCompassType(compass, dimensionID));
 	}
 
-	public static void removeCompassRef(ItemStack itemStack) {
-		allCompasses.remove(itemStack);
+	public static void updateGlobalCompass(UUID playerUUID, ItemStack compass, int dimensionID) {
+		StaticCompassType value = allCompasses.get(playerUUID);
+		value.compassRef = compass;
+		value.dimensionID = dimensionID;
+	}
+
+	public static void updateGlobalCompass(UUID playerUUID, ItemStack compass) {
+		StaticCompassType value = allCompasses.get(playerUUID);
+		value.compassRef = compass;
+	}
+
+	public static void updateGlobalCompass(UUID playerUUID, int dimensionID) {
+		StaticCompassType value = allCompasses.get(playerUUID);
+		value.dimensionID = dimensionID;
+	}
+
+	public static void removeCompassRef(UUID playerUUID) {
+		allCompasses.remove(playerUUID);
 	}
 
 	public static void clearCompassList() {
@@ -110,5 +152,15 @@ public class HunterCompassItem extends Item {
 	}
 
 	// TODO: Change this, it just does not work when a player is changing dimensions. Think. Refactor
-	private static final Hashtable<ItemStack, Integer> allCompasses = new Hashtable<>();
+	static class StaticCompassType {
+		StaticCompassType(ItemStack compassRef, int dimensionID) {
+			this.compassRef = compassRef;
+			this.dimensionID = dimensionID;
+		}
+
+		ItemStack compassRef;
+		int dimensionID;
+	}
+
+	private static final Hashtable<UUID, StaticCompassType> allCompasses = new Hashtable<>();
 }

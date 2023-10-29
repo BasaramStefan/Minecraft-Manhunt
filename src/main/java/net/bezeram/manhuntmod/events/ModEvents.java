@@ -11,6 +11,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.ServerScoreboard;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.player.Inventory;
@@ -278,7 +279,10 @@ public class ModEvents {
 
 		@SubscribeEvent
 		public static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
-			HunterCompassItem.onPlayerChangeDimension(event.getEntity().getName().getString(), event.getEntity().getLevel());
+			if (event.getEntity().getLevel().isClientSide())
+				return;
+
+			HunterCompassItem.onPlayerChangeDimension((ServerPlayer) event.getEntity(), event.getEntity().getLevel());
 		}
 
 		public static final int SLOT_COUNT = 41;

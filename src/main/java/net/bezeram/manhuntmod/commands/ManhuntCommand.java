@@ -73,8 +73,8 @@ public class ManhuntCommand {
 								HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
 								if (!player.getInventory().add(compass))
 									player.drop(compass, false);
-								HunterCompassItem.addOrUpdateCompass(compass,
-											Game.getDimensionID(player.getLevel().dimension()));
+								int dimensionID = Game.getDimensionID(player.getLevel().dimension());
+								HunterCompassItem.putGlobalCompass(player.getUUID(), compass, dimensionID);
 							}
 						}
 
@@ -139,8 +139,8 @@ public class ManhuntCommand {
 							HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
 							if (!player.getInventory().add(compass))
 								player.drop(compass, false);
-							HunterCompassItem.addOrUpdateCompass(compass,
-									Game.getDimensionID(player.getLevel().dimension()));
+							int dimensionID = Game.getDimensionID(player.getLevel().dimension());
+							HunterCompassItem.putGlobalCompass(player.getUUID(), compass, dimensionID);
 						}
 					}
 
