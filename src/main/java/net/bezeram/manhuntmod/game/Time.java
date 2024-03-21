@@ -1,4 +1,4 @@
-package net.bezeram.manhuntmod.game_manager;
+package net.bezeram.manhuntmod.game;
 
 public class Time {
 	public Time() {}
@@ -6,13 +6,13 @@ public class Time {
 
 	public static Time TimeSeconds(double seconds) {
 		Time time = new Time();
-		time.ticks = TimerManager.secondsToTicks(seconds);
+		time.ticks = Timer.secondsToTicks(seconds);
 		return time;
 	}
 
 	public static Time TimeMinutes(double minutes) {
 		Time time = new Time();
-		time.ticks = TimerManager.minutesToTicks(minutes);
+		time.ticks = Timer.minutesToTicks(minutes);
 		return time;
 	}
 
@@ -32,8 +32,8 @@ public class Time {
 	public void advance(Time time) { ticks += time.asTicks(); }
 	public void advance(long ticks) { this.ticks += ticks; }
 
-	public double asSeconds() 	{ return TimerManager.ticksToSeconds(ticks); }
-	public double asMinutes() 	{ return TimerManager.ticksToMinutes(ticks); }
+	public double asSeconds() 	{ return Timer.ticksToSeconds(ticks); }
+	public double asMinutes() 	{ return Timer.ticksToMinutes(ticks); }
 	public long asTicks()		{ return ticks; }
 
 	private long ticks = 0;

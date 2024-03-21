@@ -1,14 +1,11 @@
 package net.bezeram.manhuntmod.item.custom;
 
-import net.bezeram.manhuntmod.game_manager.Game;
+import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.networking.ModMessages;
 import net.bezeram.manhuntmod.networking.packets.HunterCompassUseC2SPacket;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
@@ -18,7 +15,6 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.UUID;
 
@@ -50,7 +46,7 @@ public class HunterCompassItem extends Item {
 	public boolean isFoil(ItemStack itemStack) { return isCompassTracking(itemStack) || super.isFoil(itemStack); }
 
 	public static void addOrUpdateTags(Level compassLevel, CompoundTag tag) {
-		if (compassLevel.isClientSide || !Game.isInSession())
+		if (compassLevel.isClientSide || !Game.inSession())
 			return;
 		Game.PlayersList playersList = Game.get().getPlayers();
 
@@ -65,7 +61,7 @@ public class HunterCompassItem extends Item {
 	}
 
 	public static void removeTags(Level level, CompoundTag tag) {
-		if (level.isClientSide || Game.isInSession())
+		if (level.isClientSide || Game.inSession())
 			return;
 
 		// If game has ended, remove the compass tags
@@ -90,7 +86,7 @@ public class HunterCompassItem extends Item {
 	}
 
 	public static void onPlayerChangeDimension(ServerPlayer traveler, Level newLevel) {
-		if (!Game.isInSession())
+		if (!Game.inSession())
 			return;
 
 		// If the current compass checked belongs to the traveler, update its dimension before updating the tag

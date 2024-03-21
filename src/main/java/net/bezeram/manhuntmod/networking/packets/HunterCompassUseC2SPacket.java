@@ -1,6 +1,6 @@
 package net.bezeram.manhuntmod.networking.packets;
 
-import net.bezeram.manhuntmod.game_manager.Game;
+import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -46,7 +46,7 @@ public class HunterCompassUseC2SPacket {
 			ServerLevel level = player.getLevel();
 			ItemStack itemUsed = player.getItemInHand(interactionHand);
 
-			if (!Game.isInSession()) {
+			if (!Game.inSession()) {
 				player.sendSystemMessage(Component.literal("No game in session").withStyle(ChatFormatting.RED));
 				HunterCompassItem.removeTags(level, itemUsed.getOrCreateTag());
 				return;

@@ -1,9 +1,9 @@
 package net.bezeram.manhuntmod.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
-import net.bezeram.manhuntmod.game_manager.Game;
-import net.bezeram.manhuntmod.game_manager.ManhuntGameRules;
-import net.bezeram.manhuntmod.game_manager.TimerManager;
+import net.bezeram.manhuntmod.game.Game;
+import net.bezeram.manhuntmod.game.ManhuntGameRules;
+import net.bezeram.manhuntmod.game.Timer;
 import net.bezeram.manhuntmod.item.ModItems;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
@@ -29,7 +29,7 @@ public class ManhuntCommand {
 		.then(Commands.argument("runnerTeam", TeamArgument.team())
 		.then(Commands.argument("hunterTeam", TeamArgument.team())
 				.executes((command) -> {
-					if (Game.isInSession()) {
+					if (Game.inSession()) {
 						command.getSource().getPlayerOrException().sendSystemMessage(Component
 								.literal("Game already in session").withStyle(ChatFormatting.RED));
 						return 1;
@@ -93,7 +93,7 @@ public class ManhuntCommand {
 		.then(Commands.argument("runner", EntityArgument.entity())
 		.then(Commands.argument("hunter", EntityArgument.entity())
 				.executes((command) -> {
-					if (Game.isInSession()) {
+					if (Game.inSession()) {
 						command.getSource().getPlayerOrException().sendSystemMessage(Component
 								.literal("Game already in session").withStyle(ChatFormatting.RED));
 						return 1;
@@ -153,7 +153,7 @@ public class ManhuntCommand {
 		})))
 		.then(Commands.literal("stop")
 				.executes((command) -> {
-					if (Game.isInSession()) {
+					if (Game.inSession()) {
 						Game.get().stopGame();
 
 						ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
@@ -173,7 +173,7 @@ public class ManhuntCommand {
 		}))
 		.then(Commands.literal("pause")
 				.executes((command) -> {
-					if (Game.isInSession()) {
+					if (Game.inSession()) {
 						if (Game.canPauseGame(command)) {
 							PlayerList allPlayers = command.getSource().getServer().getPlayerList();
 							Game.get().pauseGame(allPlayers);
@@ -209,7 +209,7 @@ public class ManhuntCommand {
 		}))
 		.then(Commands.literal("resume")
 				.executes((command) -> {
-					if (Game.isInSession()) {
+					if (Game.inSession()) {
 						if (Game.canResumeGame(command)) {
 							Game.get().resumeGame();
 
@@ -265,7 +265,7 @@ public class ManhuntCommand {
 		if (ManhuntGameRules.TIME_LIMIT) {
 			timer.setDisplayName(Component.literal("Time / Kills").withStyle(ChatFormatting.GOLD));
 
-			if (TimerManager.getGameTime().asMinutes() > 1) {
+			if (Timer.getGameTime().asMinutes() > 1) {
 				scoreboard.getOrCreatePlayerScore("Minutes", timer).setScore(score);
 				scoreboard.resetPlayerScore("Seconds", timer);
 			}
@@ -330,7 +330,7 @@ public class ManhuntCommand {
 	}
 
 	private static ValidateType checkExists() {
-		if (Game.isInSession())
+		if (Game.inSession())
 			return new ValidateType("Already in session", false, ValidateType.FAILURE_FORMAT);
 		return new ValidateType("Starting game in " + (int)Game.get().getStartDelay().asSeconds() + " seconds", true,
 				ValidateType.SUCCESS_FORMAT);

@@ -2,7 +2,7 @@ package net.bezeram.manhuntmod.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import net.bezeram.manhuntmod.game_manager.DedicatedRespawnsManager;
+import net.bezeram.manhuntmod.game.DedicatedRespawnsManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;

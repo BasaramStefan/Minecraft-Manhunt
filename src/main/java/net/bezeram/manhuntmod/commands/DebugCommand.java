@@ -3,33 +3,26 @@ package net.bezeram.manhuntmod.commands;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.bezeram.manhuntmod.events.ModEvents;
-import net.bezeram.manhuntmod.game_manager.Game;
-import net.bezeram.manhuntmod.game_manager.Time;
+import net.bezeram.manhuntmod.game.Game;
+import net.bezeram.manhuntmod.game.Time;
+import net.bezeram.manhuntmod.game.players.PlayerRespawner;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
-import net.minecraft.commands.arguments.blocks.BlockStateArgument;
-import net.minecraft.commands.arguments.item.ItemArgument;
-import net.minecraft.commands.arguments.item.ItemPredicateArgument;
 import net.minecraft.data.registries.VanillaRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
 import org.jetbrains.annotations.NotNull;
-
-import java.awt.*;
-import java.util.Hashtable;
 
 public class DebugCommand {
 	public DebugCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -37,7 +30,7 @@ public class DebugCommand {
 		dispatcher.register(Commands.literal("Debug")
 				.then(Commands.literal("ActiveTime").executes((command) -> {
 					// Print time elapsed since start of game
-					boolean isInSession = Game.isInSession();
+					boolean isInSession = Game.inSession();
 
 					if (isInSession) {
 						double timeSeconds = Game.get().getElapsedTime().asSeconds();
@@ -59,7 +52,7 @@ public class DebugCommand {
 					return 0;
 				}))
 				.then(Commands.literal("Teams").executes((command) -> {
-					boolean inSession = Game.isInSession();
+					boolean inSession = Game.inSession();
 					String feedback = "";
 
 					if (inSession)
@@ -121,7 +114,7 @@ public class DebugCommand {
 								}
 
 								System.out.println("Player: " + player.getDisplayName().getString() + " requests inventory save");
-								Game.get().saveInventory(player.getDisplayName().getString(), savedInventory);
+								PlayerRespawner.saveInventoryStatic(player.getDisplayName().getString(), savedInventory);
 								player.displayClientMessage(Component.literal("Inventory saved"), false);
 							}
 
@@ -135,13 +128,13 @@ public class DebugCommand {
 							String playerName = player.getDisplayName().getString();
 							System.out.println("Player: " + playerName + " requests inventory load");
 
-							if (Game.get().getInventory(playerName) == null) {
+							if (PlayerRespawner.getInventoryStatic(playerName) == null) {
 								player.displayClientMessage(Component.literal("No inventory saved!")
 										.withStyle(ChatFormatting.RED), false);
 							}
 
 							for (int slot = 0; slot < SLOT_COUNT; slot++) {
-								ItemStack itemStack = Game.get().getInventory(playerName).getItem(slot);
+								ItemStack itemStack = PlayerRespawner.getInventoryStatic(playerName).getItem(slot);
 								player.getInventory().setItem(slot, itemStack);
 							}
 
@@ -181,7 +174,7 @@ public class DebugCommand {
 				}))
 				.then(Commands.literal("GetCompassTags")
 						.executes((command) -> {
-							if (!Game.isInSession())
+							if (!Game.inSession())
 								return 1;
 
 							Player player = command.getSource().getPlayerOrException();
@@ -210,7 +203,7 @@ public class DebugCommand {
 				}))
 				.then(Commands.literal("SetHoverName")
 						.executes((command) -> {
-							if (!Game.isInSession())
+							if (!Game.inSession())
 								return 1;
 
 							Player player = command.getSource().getPlayerOrException();
@@ -221,7 +214,7 @@ public class DebugCommand {
 				}))
 				.then(Commands.literal("ResetHoverName")
 						.executes((command) -> {
-							if (!Game.isInSession())
+							if (!Game.inSession())
 								return 1;
 
 							Player player = command.getSource().getPlayerOrException();
@@ -233,7 +226,7 @@ public class DebugCommand {
 	}
 
 	private static void printInventory(String playerName) {
-		Inventory inventory = Game.get().getInventory(playerName);
+		Inventory inventory = PlayerRespawner.getInventoryStatic(playerName);
 		for (int slot = 0; slot < 41; slot++)
 			System.out.println("slot: " + slot + " " + inventory.getItem(slot));
 	}

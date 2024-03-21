@@ -1,10 +1,8 @@
-package net.bezeram.manhuntmod.game_manager;
+package net.bezeram.manhuntmod.game;
 
-import net.minecraft.core.Holder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
-import net.minecraft.world.level.dimension.DimensionType;
 
 // Every player has a dedicated respawn manager
 public class DedicatedRespawnsManager {

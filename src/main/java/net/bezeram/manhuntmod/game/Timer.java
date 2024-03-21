@@ -1,11 +1,11 @@
-package net.bezeram.manhuntmod.game_manager;
+package net.bezeram.manhuntmod.game;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.players.PlayerList;
 import net.minecraftforge.event.TickEvent;
 
-public class TimerManager {
+public class Timer {
 	private static Time RUNNER_LIMIT 			= Time.TimeMinutes(90);
 	private static Time RUNNER_START 			= Time.TimeSeconds(10);
 	private static Time HEADSTART 				= Time.TimeSeconds(30);
@@ -18,9 +18,9 @@ public class TimerManager {
 	public void updateStart() 	        { activeStart.advance(); }
 	public void updateHeadstart() 	    { activeHeadstart.advance(); }
 	public void updateResume() 	        { activeResume.advance(); }
-	public void deathPenalty() {
-		// If the current game time is below the death penalty, it will not be updated as to show how much
-		// time was left on scoreboard
+	public void applyDeathPenalty() {
+		// If the current game time is below the death penalty,
+		// it will not be updated as to show how much time was left on scoreboard
 		if (game.asTicks() - activeGame.asTicks() < deathPenalty.asTicks()) {
 			Game.get().hunterHasWon();
 			return;
@@ -120,6 +120,4 @@ public class TimerManager {
 	private final Time deathPenalty = DEATH_PENALTY;
 	private final Time pause = PAUSE;
 	private final Time resume = RESUME;
-
-
 }

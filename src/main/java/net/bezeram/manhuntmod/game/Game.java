@@ -1,7 +1,8 @@
-package net.bezeram.manhuntmod.game_manager;
+package net.bezeram.manhuntmod.game;
 
 import com.mojang.brigadier.context.CommandContext;
 import net.bezeram.manhuntmod.events.ModEvents;
+import net.bezeram.manhuntmod.game.players.PlayerData;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -13,12 +14,10 @@ import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
@@ -53,6 +52,8 @@ public class Game {
 		}
 
 		this.playersList = new PlayersList(listRunners, listHunters);
+		this.timer = new Timer();
+		this.playerData = new PlayerData(timer);
 	}
 
 	public static void init(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList,
@@ -60,7 +61,7 @@ public class Game {
 		GAME_INSTANCE = new Game(teamRunner, teamHunter, playerList, server);
 	}
 
-	public static boolean isInSession() {
+	public static boolean inSession() {
 		return GAME_INSTANCE != null;
 	}
 
@@ -94,20 +95,6 @@ public class Game {
 
 	public MinecraftServer getServer() { return server; }
 
-	public void applyDeathPenalty(Level level) {
-		switch (ManhuntGameRules.DEATH_PENALTY) {
-			case TRUE -> {
-				timer.deathPenalty();
-			}
-			case TRUE_EXCEPT_END -> {
-				boolean diedInEnd = level.dimensionTypeRegistration().is(BuiltinDimensionTypes.END);
-				if (!diedInEnd) {
-					timer.deathPenalty();
-				}
-			}
-		}
-	}
-
 	public Time getElapsedTime()    { return timer.getGameElapsed(); }
 	public Time getGameTime()       { return timer.getSessionGame(); }
 	public Time getStartDelay()     { return timer.getSessionStart(); }
@@ -126,20 +113,6 @@ public class Game {
 	public void hunterHasWon() {
 		setGameState(GameState.END);
 		runnerWins = false;
-	}
-
-	public void saveInventory(String playerDisplayName, Inventory inventory) {
-		playerInventories.put(playerDisplayName, inventory);
-	}
-
-	public Inventory getInventory(String playerDisplayName) {
-		if (!playerInventories.containsKey(playerDisplayName))
-			return null;
-		return playerInventories.get(playerDisplayName);
-	}
-
-	public boolean isInventorySaved(String playerDisplayName) {
-		return playerInventories.containsKey(playerDisplayName);
 	}
 
 	// TODO: Fix this
@@ -181,7 +154,7 @@ public class Game {
 	}
 
 	public static boolean canPauseGame(CommandContext<CommandSourceStack> command) {
-		if (!Game.isInSession() && Game.getGameState() == GameState.PAUSE)
+		if (!Game.inSession() && Game.getGameState() == GameState.PAUSE)
 			return false;
 
 		List<ServerPlayer> playersList = command.getSource().getServer().getPlayerList().getPlayers();
@@ -473,7 +446,6 @@ public class Game {
 		}
 	}
 
-	// TODO: Implement the PAUSE game state
 	public enum GameState {
 		NULL, START, HEADSTART, ONGOING, END, RESUME, PAUSE, ERASE
 	}
@@ -653,10 +625,12 @@ public class Game {
 		private final Hashtable<String, Vec3> lastPlayerPosition = new Hashtable<>();
 	}
 
-	private final Hashtable<String, Inventory> playerInventories = new Hashtable<>();
+	public final PlayerData getPlayerData() { return playerData; }
 
-	private final TimerManager timer = new TimerManager();
+	private final PlayerData playerData;
+
+	private final Timer timer;
 	private final Hashtable<Player, DedicatedRespawnsManager> respawnerMap = new Hashtable<>();
 
-	private MinecraftServer server;
+	private final MinecraftServer server;
 }
