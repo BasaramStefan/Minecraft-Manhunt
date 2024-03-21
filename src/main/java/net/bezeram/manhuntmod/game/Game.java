@@ -256,13 +256,8 @@ public class Game {
 					PlayerList playerList = event.getServer().getPlayerList();
 					playerList.broadcastSystemMessage(Component.literal("Hunters have been unleashed!"), false);
 					/*
-						TODO: Play pillager raid start of wave sound,
-						 this bs does not work
+						TODO: Play pillager raid start of wave sound for all players
 					*/
-
-//					for (ServerPlayer player : playerList.getPlayers()) {
-//						player.playSound(SoundEvents.PILLAGER_CELEBRATE);
-//					}
 				}
 			}
 			case ONGOING -> {
