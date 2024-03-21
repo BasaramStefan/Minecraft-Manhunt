@@ -49,7 +49,7 @@ public class PlayerRespawner {
         savePlayerInventory(serverPlayer);
 
         // Deduct from the game time if the serverPlayer is a runner
-        if (ManhuntGameRules.isTimeLimit() && Game.get().isRunner(serverPlayer)) {
+        if (ManhuntGameRules.isTimeLimit() && Game.get().getPlayerData().isRunner(serverPlayer)) {
             applyDeathPenalty(serverPlayer.getLevel());
         }
     }

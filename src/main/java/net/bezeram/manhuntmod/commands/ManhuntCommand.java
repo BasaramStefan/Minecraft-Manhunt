@@ -68,7 +68,7 @@ public class ManhuntCommand {
 						Game.init(teamRunner, teamHunter, server.getPlayerList(), server);
 
 						for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-							if (Game.get().isHunter(player)) {
+							if (Game.get().getPlayerData().isHunter(player)) {
 								ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
 								HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
 								if (!player.getInventory().add(compass))
@@ -134,7 +134,7 @@ public class ManhuntCommand {
 					Game.init(teamRunner, teamHunter, server.getPlayerList(), server);
 
 					for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-						if (Game.get().isHunter(player)) {
+						if (Game.get().getPlayerData().isHunter(player)) {
 							ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
 							HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
 							if (!player.getInventory().add(compass))
@@ -175,8 +175,7 @@ public class ManhuntCommand {
 				.executes((command) -> {
 					if (Game.inSession()) {
 						if (Game.canPauseGame(command)) {
-							PlayerList allPlayers = command.getSource().getServer().getPlayerList();
-							Game.get().pauseGame(allPlayers);
+							Game.get().pauseGame();
 
 							ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
 							Objective timer = scoreboard.getObjective("TimeLeft");
@@ -185,7 +184,7 @@ public class ManhuntCommand {
 
 							Game.get().resetResumeTime();
 
-							for (ServerPlayer player : allPlayers.getPlayers()) {
+							for (ServerPlayer player : Game.get().getPlayerData().getPlayerList().getPlayers()) {
 								player.setInvulnerable(true);
 								player.setInvisible(true);
 							}

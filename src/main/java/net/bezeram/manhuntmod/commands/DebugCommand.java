@@ -189,7 +189,7 @@ public class DebugCommand {
 
 								int trackedPlayerID = tag.getInt(HunterCompassItem.TAG_TARGET_PLAYER);
 								boolean trackingPlayer = tag.getBoolean(HunterCompassItem.TAG_TARGET_TRACKED);
-								ServerPlayer trackedPlayer = Game.get().getPlayers().getPlayer(trackedPlayerID);
+								ServerPlayer trackedPlayer = Game.get().getPlayerData().getPlayerArray().getPlayer(trackedPlayerID);
 								String trackedPlayerName = trackedPlayer.getName().getString();
 
 								player.displayClientMessage(Component.literal("Tracking: " + trackedPlayerName), false);

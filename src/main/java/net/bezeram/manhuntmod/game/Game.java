@@ -29,31 +29,13 @@ public class Game {
 	private static Game GAME_INSTANCE = null;
 
 	private Game(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList, MinecraftServer server) {
-		this.teamRunner = teamRunner;
-		this.teamHunter = teamHunter;
-		this.listHunters = new ServerPlayer[teamHunter.getPlayers().size()];
-		this.listRunners = new ServerPlayer[teamRunner.getPlayers().size()];
 		this.server = server;
 		currentState = GameState.START;
 		prevState = currentState;
 		ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
 
-		int indexHunters = 0;
-		int indexRunners = 0;
-		for (ServerPlayer player : playerList.getPlayers()) {
-			if (isHunter(player)) {
-				huntersStartCoords.put(player.getName().getString(), player.getPosition(1));
-				listHunters[indexHunters++] = player;
-			}
-			else if (isRunner(player)) {
-				runnersStartCoords.put(player.getName().getString(), player.getPosition(1));
-				listRunners[indexRunners++] = player;
-			}
-		}
-
-		this.playersList = new PlayersList(listRunners, listHunters);
 		this.timer = new Timer();
-		this.playerData = new PlayerData(timer);
+		this.playerData = new PlayerData(teamRunner, teamHunter, playerList, timer);
 	}
 
 	public static void init(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList,
@@ -175,9 +157,8 @@ public class Game {
 		return Game.getGameState() == GameState.PAUSE;
 	}
 
-	public void pauseGame(PlayerList playerList) {
-		for (ServerPlayer player : playerList.getPlayers())
-			playersPrevCoords.put(player.getName().getString(), player.getPosition(1));
+	public void pauseGame() {
+		playerData.updatePlayersPrevPosition();
 
 		ServerScoreboard scoreboard = server.getScoreboard();
 		Objective objective = scoreboard.getObjective("TimeLeft");
@@ -275,8 +256,8 @@ public class Game {
 			case END -> {
 				// Common end of game functionality
 				PlayerList playerList = event.getServer().getPlayerList();
-				PlayerTeam winnerTeam = (runnerWins) ? teamRunner : teamHunter;
-				PlayerTeam loserTeam  = (!runnerWins) ? teamRunner : teamHunter;
+				PlayerTeam winnerTeam = (runnerWins) ? playerData.getTeamRunner() : playerData.getTeamHunter();
+				PlayerTeam loserTeam  = (!runnerWins) ? playerData.getTeamRunner() : playerData.getTeamHunter();
 
 				String feedbackServer = "";
 				boolean team;
@@ -329,11 +310,10 @@ public class Game {
 		}
 	}
 
-	public PlayerTeam getTeamRunner() { return teamRunner; }
-	public PlayerTeam getTeamHunter() { return teamHunter; }
-	public ServerPlayer[] getHuntersArray() { return listHunters; }
-	public ServerPlayer[] getRunnersArray() { return listRunners; }
-	public PlayersList getPlayers() { return playersList; }
+	public PlayerTeam getTeamRunner() { return playerData.getTeamRunner(); }
+	public PlayerTeam getTeamHunter() { return playerData.getTeamHunter(); }
+	public ServerPlayer[] getHuntersArray() { return playerData.getListHunters(); }
+	public ServerPlayer[] getRunnersArray() { return playerData.getListRunners(); }
 
 	public static boolean isHunterAtGameState(Player player, GameState targetGameState) {
 		if (player.getTeam() == null || currentState != targetGameState)
@@ -365,43 +345,11 @@ public class Game {
 		return false;
 	}
 
-	public boolean isHunter(Player player) {
-		if (player.getTeam() == null)
-			return false;
-
-		String playerName = player.getName().getString();
-		for (String hunter : teamHunter.getPlayers()) {
-			if (hunter.contains(playerName)) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	public boolean isRunner(Player player) {
-		if (player.getTeam() == null)
-			return false;
-
-		String playerName = player.getName().getString();
-		for (String runner : teamRunner.getPlayers()) {
-			if (runner.contains(playerName)) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	public boolean isInGame(Player player) {
-		return isRunner(player) || isHunter(player);
-	}
-
 	private void lockHuntersPos(TickEvent.ServerTickEvent event) {
 		PlayerList playerList = event.getServer().getPlayerList();
 		for (ServerPlayer player : playerList.getPlayers())
-			if (isHunter(player)) {
-				Vec3 coords = huntersStartCoords.get(player.getName().getString());
+			if (playerData.isHunter(player)) {
+				Vec3 coords = playerData.getHuntersStartCoords().get(player.getName().getString());
 				Vec3 currentPlayerCoords = player.getPosition(1);
 
 				if (currentPlayerCoords.x != coords.x ||
@@ -415,8 +363,8 @@ public class Game {
 	private void lockRunnersPos(TickEvent.ServerTickEvent event) {
 		PlayerList playerList = event.getServer().getPlayerList();
 		for (ServerPlayer player : playerList.getPlayers())
-			if (isRunner(player)) {
-				Vec3 coords = runnersStartCoords.get(player.getName().getString());
+			if (playerData.isRunner(player)) {
+				Vec3 coords = playerData.getRunnersStartCoords().get(player.getName().getString());
 				Vec3 currentPlayerCoords = player.getPosition(1);
 
 				if (currentPlayerCoords.x != coords.x ||
@@ -430,7 +378,7 @@ public class Game {
 	private void lockPlayersPos(TickEvent.ServerTickEvent event) {
 		PlayerList playerList = event.getServer().getPlayerList();
 		for (ServerPlayer player : playerList.getPlayers()) {
-			Vec3 coords = playersPrevCoords.get(player.getName().getString());
+			Vec3 coords = playerData.getPlayersPrevCoords().get(player.getName().getString());
 			Vec3 currentPlayerCoords = player.getPosition(1);
 
 			if (currentPlayerCoords.x != coords.x ||
@@ -448,91 +396,6 @@ public class Game {
 	private static GameState currentState = GameState.NULL;
 	private static GameState prevState = GameState.NULL;
 	private boolean runnerWins = true;
-
-	private final PlayerTeam teamRunner;
-	private final PlayerTeam teamHunter;
-	private final ServerPlayer[] listHunters;
-	private final ServerPlayer[] listRunners;
-	private final PlayersList playersList;
-
-	public static class PlayersList {
-		PlayersList(ServerPlayer[] runners, ServerPlayer[] hunters) {
-			int runnersCount = runners.length;
-			int huntersCount = hunters.length;
-			this.runnerCount = runnersCount;
-			this.playerArray = new ServerPlayer[runnersCount + huntersCount];
-			this.prevRunnerIndex = 0;
-			this.prevHunterIndex = runnersCount;
-
-			int indexPlayers = 0;
-			for (ServerPlayer runner : runners) {
-				playerArray[indexPlayers] = runner;
-				indexPlayers++;
-			}
-
-			for (ServerPlayer hunter : hunters) {
-				playerArray[indexPlayers] = hunter;
-				indexPlayers++;
-			}
-		}
-		
-		public int cycleRunners(int ID) {
-			ID = (ID + 1) % runnerCount;
-			return ID;
-		}
-		
-		public int cycleHunters(int ID) {
-			if (ID < runnerCount)
-				return runnerCount;
-			return (ID + 1 - runnerCount) % getHunterCount() + runnerCount;
-		}
-
-		public boolean samePlayer(Player player, int ID2) {
-			return player.getUUID() == playerArray[ID2].getUUID();
-		}
-		
-		public int getRunnerCount() { return runnerCount; }
-		public int getHunterCount() { return playerArray.length - runnerCount; }
-		public int getPlayerCount() { return playerArray.length; }
-		public int getFirstRunnerID() { return 0; }
-		public int getFirstHunterID() { return runnerCount; }
-
-		public ServerPlayer getPlayer(int index) { return playerArray[index]; }
-		public ServerPlayer getFirstRunner() { return playerArray[0]; }
-		public ServerPlayer getFirstHunter() { return playerArray[runnerCount]; }
-
-		public int getIDByName(String playerName) {
-			for (int i = 0; i < playerArray.length; i++)
-				if (playerArray[i].getName().getString().equals(playerName))
-					return i;
-			return -1;
-		}
-
-		public boolean isRunner(int ID) { return ID >= 0 && ID < runnerCount; }
-		public boolean isHunter(int ID) { return ID >= runnerCount && ID < playerArray.length; }
-
-		public void setPrevHunterID(int index) {
-			prevHunterIndex = index;
-		}
-
-		public void setPrevRunnerID(int index) {
-			prevRunnerIndex = index;
-		}
-
-		public int getPrevHunterID() {
-			return prevHunterIndex;
-		}
-
-		public int getPrevRunnerID() {
-			return prevRunnerIndex;
-		}
-
-		private final ServerPlayer[] playerArray;
-		private final int runnerCount;
-
-		private int prevRunnerIndex;
-		private int prevHunterIndex;
-	}
 
 	public static int getDimensionID(ResourceKey<Level> dimension) {
 		if (dimension == Level.OVERWORLD)
@@ -577,10 +440,6 @@ public class Game {
 			}
 		}
 	}
-
-	private final Hashtable<String, Vec3> huntersStartCoords = new Hashtable<>();
-	private final Hashtable<String, Vec3> runnersStartCoords = new Hashtable<>();
-	private final Hashtable<String, Vec3> playersPrevCoords = new Hashtable<>();
 
 	public enum PlayerLastLocations {
 		Overworld, Nether, End;

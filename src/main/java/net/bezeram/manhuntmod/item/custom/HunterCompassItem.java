@@ -1,6 +1,7 @@
 package net.bezeram.manhuntmod.item.custom;
 
 import net.bezeram.manhuntmod.game.Game;
+import net.bezeram.manhuntmod.game.players.PlayerArray;
 import net.bezeram.manhuntmod.networking.ModMessages;
 import net.bezeram.manhuntmod.networking.packets.HunterCompassUseC2SPacket;
 import net.minecraft.client.gui.screens.Screen;
@@ -48,13 +49,13 @@ public class HunterCompassItem extends Item {
 	public static void addOrUpdateTags(Level compassLevel, CompoundTag tag) {
 		if (compassLevel.isClientSide || !Game.inSession())
 			return;
-		Game.PlayersList playersList = Game.get().getPlayers();
+		PlayerArray playerArray = Game.get().getPlayerData().getPlayerArray();
 
 		if (!tag.contains(TAG_TARGET_PLAYER)) {
 			tag.putInt(TAG_TARGET_PLAYER, 0);
 		}
 
-		ServerPlayer targetPlayer = playersList.getPlayer(tag.getInt(TAG_TARGET_PLAYER));
+		ServerPlayer targetPlayer = playerArray.getPlayer(tag.getInt(TAG_TARGET_PLAYER));
 		int runnerDimensionID = Game.getDimensionID(targetPlayer.getLevel().dimension());
 		int levelDimensionID = Game.getDimensionID(compassLevel.dimension());
 		tag.putBoolean(TAG_TARGET_TRACKED, runnerDimensionID == levelDimensionID);
@@ -92,7 +93,7 @@ public class HunterCompassItem extends Item {
 		// If the current compass checked belongs to the traveler, update its dimension before updating the tag
 		UUID travelerUUID = traveler.getUUID();
 		int newDimensionID = Game.getDimensionID(newLevel.dimension());
-		if (Game.get().isHunter(traveler)) {
+		if (Game.get().getPlayerData().isHunter(traveler)) {
 			for (ItemStack itemStack : traveler.getInventory().items) {
 				if (itemStack.getItem() instanceof HunterCompassItem) {
 					HunterCompassItem.addOrUpdateTags(newLevel, itemStack.getOrCreateTag());
