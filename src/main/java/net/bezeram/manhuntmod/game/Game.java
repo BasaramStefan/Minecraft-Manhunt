@@ -67,9 +67,10 @@ public class Game {
 	public void stopGame() {
 		ServerScoreboard scoreboard = server.getScoreboard();
 		Objective objective = scoreboard.getObjective("TimeLeft");
-		assert objective != null;
-		scoreboard.resetPlayerScore("PAUSED", objective);
-		scoreboard.getOrCreatePlayerScore("STOPPED", objective);
+		if (objective != null) {
+			scoreboard.resetPlayerScore("PAUSED", objective);
+			scoreboard.getOrCreatePlayerScore("STOPPED", objective);
+		}
 
 		currentState = GameState.NULL;
 		GAME_INSTANCE = null;
@@ -97,44 +98,6 @@ public class Game {
 		runnerWins = false;
 	}
 
-	// TODO: Fix this
-	public static void removePiercing(ServerPlayer player) {
-		Inventory inventory = player.getInventory();
-
-		int foundSlot = -1;
-		for (int slot = 0; slot < Inventory.INVENTORY_SIZE; slot++) {
-			ItemStack itemStack = inventory.getItem(slot);
-			// TODO: how do I identify any crossbow, not just pure default
-			if (itemStack.getItem().getName(itemStack).getString().equals("crossbow")) {
-				foundSlot = slot;
-				break;
-			}
-		}
-
-		if (foundSlot != -1) {
-			boolean hasEnchantments = !inventory.getItem(foundSlot).getEnchantmentTags().isEmpty();
-			if (hasEnchantments) {
-				ListTag list = inventory.getItem(foundSlot).getEnchantmentTags();
-				player.displayClientMessage(Component.literal("Tags:"), false);
-				for (int i = 0; i < list.size(); i++) {
-					player.displayClientMessage(Component.literal(list.getString(i)), false);
-				}
-			}
-			else
-				player.displayClientMessage(Component.literal("No enchant tags"), false);
-		}
-		else
-			player.displayClientMessage(Component.literal("No crossbow"), false);
-	}
-
-	public boolean canRespawnDedicated(Player player) {
-		if (respawnerMap.containsKey(player)) {
-			return respawnerMap.get(player).canRespawnDedicated(player);
-		}
-
-		return false;
-	}
-
 	public static boolean canPauseGame(CommandContext<CommandSourceStack> command) {
 		if (!Game.inSession() && Game.getGameState() == GameState.PAUSE)
 			return false;
@@ -153,7 +116,7 @@ public class Game {
 		return true;
 	}
 
-	public static boolean canResumeGame(CommandContext<CommandSourceStack> command) {
+	public static boolean canResumeGame() {
 		return Game.getGameState() == GameState.PAUSE;
 	}
 
@@ -484,7 +447,6 @@ public class Game {
 	private final PlayerData playerData;
 
 	private final Timer timer;
-	private final Hashtable<Player, DedicatedRespawnsManager> respawnerMap = new Hashtable<>();
 
 	private final MinecraftServer server;
 }

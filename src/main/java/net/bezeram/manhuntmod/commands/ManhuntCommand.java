@@ -209,7 +209,7 @@ public class ManhuntCommand {
 		.then(Commands.literal("resume")
 				.executes((command) -> {
 					if (Game.inSession()) {
-						if (Game.canResumeGame(command)) {
+						if (Game.canResumeGame()) {
 							Game.get().resumeGame();
 
 							ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
