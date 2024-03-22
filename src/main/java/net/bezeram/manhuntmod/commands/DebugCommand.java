@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.Time;
+import net.bezeram.manhuntmod.game.players.PlayerData;
 import net.bezeram.manhuntmod.game.players.PlayerRespawner;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
@@ -143,7 +144,6 @@ public class DebugCommand {
 				}))
 				.then(Commands.literal("RemoveEnchantment")
 						.executes((command) -> {
-							Game.removePiercing(command.getSource().getPlayerOrException());
 							return 0;
 				}))
 				.then(Commands.literal("SuddenDeathHighlight")
@@ -160,9 +160,9 @@ public class DebugCommand {
 							Player player = command.getSource().getPlayerOrException();
 							String playerName = player.getName().getString();
 							Vec3[] positions = new Vec3[]{
-									Game.PlayerLastLocations.Overworld.getLastPosition(playerName),
-									Game.PlayerLastLocations.Nether.getLastPosition(playerName),
-									Game.PlayerLastLocations.End.getLastPosition(playerName)
+									PlayerData.PlayerLastLocations.Overworld.getLastPosition(playerName),
+									PlayerData.PlayerLastLocations.Nether.getLastPosition(playerName),
+									PlayerData.PlayerLastLocations.End.getLastPosition(playerName)
 							};
 
 							player.displayClientMessage(Component.literal(

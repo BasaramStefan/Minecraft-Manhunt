@@ -6,17 +6,13 @@ import net.bezeram.manhuntmod.game.players.PlayerData;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerScoreboard;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.Objective;
@@ -104,7 +100,7 @@ public class Game {
 
 		List<ServerPlayer> playersList = command.getSource().getServer().getPlayerList().getPlayers();
 		for (ServerPlayer player : playersList) {
-			Vec3 lastPosition = PlayerLastLocations.Overworld.getLastPosition(player.getName().getString());
+			Vec3 lastPosition = PlayerData.PlayerLastLocations.Overworld.getLastPosition(player.getName().getString());
 			Vec3 currentPosition = player.getPosition(1);
 			Vec3 deltaPos = new Vec3(currentPosition.x - lastPosition.x,
 										currentPosition.y - lastPosition.y,
@@ -125,8 +121,8 @@ public class Game {
 
 		ServerScoreboard scoreboard = server.getScoreboard();
 		Objective objective = scoreboard.getObjective("TimeLeft");
-		assert objective != null;
-		scoreboard.getOrCreatePlayerScore("PAUSED", objective);
+		if (objective != null)
+			scoreboard.getOrCreatePlayerScore("PAUSED", objective);
 
 		prevState = currentState;
 		currentState = GameState.PAUSE;
@@ -144,7 +140,7 @@ public class Game {
 	public void update(TickEvent.ServerTickEvent event) {
 		timer.updatePlayerPosition();
 		if (timer.getPlayerPositionElapsed().asSeconds() > 1) {
-			PlayerLastLocations.updateAll(event);
+			PlayerData.PlayerLastLocations.updateAll(event);
 			timer.resetPlayerPositionTime();
 		}
 
@@ -187,7 +183,7 @@ public class Game {
 				}
 			}
 			case HEADSTART -> {
-				if (ManhuntGameRules.TIME_LIMIT)
+				if (ManhuntGameRules.isTimeLimit())
 					timer.updateActive();
 
 				timer.updateHeadstart();
@@ -200,19 +196,18 @@ public class Game {
 					PlayerList playerList = event.getServer().getPlayerList();
 					playerList.broadcastSystemMessage(Component.literal("Hunters have been unleashed!"), false);
 					/*
-						TODO: Play pillager raid start of wave sound for all players
+						Play pillager raid start of wave sound for all players
 					*/
 				}
 			}
 			case ONGOING -> {
-				if (ManhuntGameRules.TIME_LIMIT) {
+				if (ManhuntGameRules.isTimeLimit()) {
 					timer.updateActive();
 
 					if (timer.activeTimeHasEnded())
 						hunterHasWon();
 				}
 
-				// TODO:
 				// Update compass
 				// Use the Beacon powered / unpowered sounds for when it detects dimension change
 			}
@@ -234,21 +229,6 @@ public class Game {
 				}
 				playerList.broadcastSystemMessage(Component.literal(feedbackServer), false);
 
-				// TODO: Play sounds correctly, this bs does not work
-//				for (String playerName : winnerTeam.getPlayers()) {
-//					ServerPlayer player = playerList.getPlayerByName(playerName);
-//
-//					if (player != null)
-//						player.playSound(SoundEvents.PLAYER_LEVELUP);
-//				}
-//
-//				for (String playerName : loserTeam.getPlayers()) {
-//					ServerPlayer player = playerList.getPlayerByName(playerName);
-//
-//					if (player != null)
-//						player.playSound(SoundEvents.PILLAGER_CELEBRATE);
-//				}
-
 				ServerScoreboard scoreboard = event.getServer().getScoreboard();
 				Objective objective = scoreboard.getObjective("TimeLeft");
 				String victoriousTeamDisplay = (runnerWins) ? "RUNNER" : "HUNTER";
@@ -260,9 +240,10 @@ public class Game {
 					victoriousTeamDisplay += " WINS";
 				}
 
-				assert objective != null;
-				scoreboard.getOrCreatePlayerScore(victoriousTeamDisplay, objective);
-				scoreboard.addPlayerToTeam(victoriousTeamDisplay, winnerTeam);
+				if (objective != null) {
+					scoreboard.getOrCreatePlayerScore(victoriousTeamDisplay, objective);
+					scoreboard.addPlayerToTeam(victoriousTeamDisplay, winnerTeam);
+				}
 
 				setGameState(GameState.ERASE);
 			}
@@ -402,44 +383,6 @@ public class Game {
 				return null;
 			}
 		}
-	}
-
-	public enum PlayerLastLocations {
-		Overworld, Nether, End;
-
-		public void update(String playerName, Vec3 newPosition) {
-			lastPlayerPosition.put(playerName, newPosition);
-		}
-
-		public static void updateAll(TickEvent.ServerTickEvent event) {
-			PlayerList allPlayers = event.getServer().getPlayerList();
-			for (ServerPlayer player : allPlayers.getPlayers()) {
-				ServerLevel level = player.getLevel();
-				String name = player.getName().getString();
-				Vec3 newPosition = player.getPosition(0);
-
-				PlayerLastLocations location = getByDimension(level.dimension());
-
-				if (location != null)
-					location.update(name, newPosition);
-			}
-		}
-
-		public static PlayerLastLocations getByDimension(ResourceKey<Level> dimension) {
-			if (dimension == Level.OVERWORLD)
-				return PlayerLastLocations.Overworld;
-			else if (dimension == Level.NETHER)
-				return PlayerLastLocations.Nether;
-			else if (dimension == Level.END)
-				return PlayerLastLocations.End;
-			return null;
-		}
-
-		public Vec3 getLastPosition(String playerName) {
-			return lastPlayerPosition.get(playerName);
-		}
-
-		private final Hashtable<String, Vec3> lastPlayerPosition = new Hashtable<>();
 	}
 
 	public final PlayerData getPlayerData() { return playerData; }

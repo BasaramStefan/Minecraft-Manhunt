@@ -39,7 +39,6 @@ public class ModEvents {
 
 	@SubscribeEvent
 	public static void onCommandsRegister(RegisterCommandsEvent event) {
-		new ManhuntSetSpawnCountCommand(event.getDispatcher());
 		new ManhuntCommand(event.getDispatcher());
 		new ManhuntTimerCommand(event.getDispatcher());
 		new ManhuntRulesCommand(event.getDispatcher());
