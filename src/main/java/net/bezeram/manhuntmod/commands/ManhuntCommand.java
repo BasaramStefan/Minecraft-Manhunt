@@ -15,7 +15,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.scores.Objective;
@@ -73,8 +72,9 @@ public class ManhuntCommand {
 								HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
 								if (!player.getInventory().add(compass))
 									player.drop(compass, false);
-								int dimensionID = Game.getDimensionID(player.getLevel().dimension());
-								HunterCompassItem.putGlobalCompass(player.getUUID(), compass, dimensionID);
+
+//								int dimensionID = Game.getDimensionID(player.gtLevel().dimension());
+//								HunterCompassItem.putGlobalCompass(player.getUUID(), compass, dimensionID);
 							}
 						}
 
@@ -139,8 +139,8 @@ public class ManhuntCommand {
 							HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
 							if (!player.getInventory().add(compass))
 								player.drop(compass, false);
-							int dimensionID = Game.getDimensionID(player.getLevel().dimension());
-							HunterCompassItem.putGlobalCompass(player.getUUID(), compass, dimensionID);
+//							int dimensionID = Game.getDimensionID(player.getLevel().dimension());
+//							HunterCompassItem.putGlobalCompass(player.getUUID(), compass, dimensionID);
 						}
 					}
 
@@ -184,7 +184,7 @@ public class ManhuntCommand {
 
 							Game.get().resetResumeTime();
 
-							for (ServerPlayer player : Game.get().getPlayerData().getPlayerList().getPlayers()) {
+							for (ServerPlayer player : Game.get().getPlayerData().getList().getPlayers()) {
 								player.setInvulnerable(true);
 								player.setInvisible(true);
 							}

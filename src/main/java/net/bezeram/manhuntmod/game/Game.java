@@ -1,6 +1,7 @@
 package net.bezeram.manhuntmod.game;
 
 import com.mojang.brigadier.context.CommandContext;
+import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game.players.PlayerData;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
@@ -20,6 +21,7 @@ import net.minecraft.world.scores.PlayerTeam;
 import net.minecraftforge.event.TickEvent;
 
 import java.util.*;
+import java.util.List;
 
 public class Game {
 	private static Game GAME_INSTANCE = null;
@@ -100,7 +102,7 @@ public class Game {
 
 		List<ServerPlayer> playersList = command.getSource().getServer().getPlayerList().getPlayers();
 		for (ServerPlayer player : playersList) {
-			Vec3 lastPosition = PlayerData.PlayerLastLocations.Overworld.getLastPosition(player.getName().getString());
+			Vec3 lastPosition = player.getPosition(0);
 			Vec3 currentPosition = player.getPosition(1);
 			Vec3 deltaPos = new Vec3(currentPosition.x - lastPosition.x,
 										currentPosition.y - lastPosition.y,
@@ -117,7 +119,7 @@ public class Game {
 	}
 
 	public void pauseGame() {
-		playerData.updatePlayersPrevPosition();
+		playerData.updateCoords();
 
 		ServerScoreboard scoreboard = server.getScoreboard();
 		Objective objective = scoreboard.getObjective("TimeLeft");
@@ -139,19 +141,20 @@ public class Game {
 
 	public void update(TickEvent.ServerTickEvent event) {
 		timer.updatePlayerPosition();
-		if (timer.getPlayerPositionElapsed().asSeconds() > 1) {
-			PlayerData.PlayerLastLocations.updateAll(event);
+
+		if (timer.getPlayerPositionElapsed().asSeconds() > 0.1f) {
+			playerData.updateAllCoords();
 			timer.resetPlayerPositionTime();
 		}
 
 		switch (currentState) {
 			case PAUSE -> {
-				lockPlayersPos(event);
+				lockPlayersPos();
 			}
 			case RESUME -> {
 				timer.updateResume();
 				timer.updateResumeHints(event);
-				lockPlayersPos(event);
+				lockPlayersPos();
 
 				if (timer.gameResumed()) {
 					currentState = prevState;
@@ -168,8 +171,8 @@ public class Game {
 			case START -> {
 				timer.updateStart();
 				timer.updateStartHints(event);
-				lockHuntersPos(event);
-				lockRunnersPos(event);
+				lockHuntersPos();
+				lockRunnersPos();
 
 				if (timer.runnersHaveStarted()) {
 					if (ManhuntGameRules.HEADSTART)
@@ -189,7 +192,7 @@ public class Game {
 				timer.updateHeadstart();
 				timer.updateHeadstartHints(event);
 
-				lockHuntersPos(event);
+				lockHuntersPos();
 
 				if (timer.huntersHaveStarted()) {
 					setGameState(GameState.ONGOING);
@@ -256,8 +259,8 @@ public class Game {
 
 	public PlayerTeam getTeamRunner() { return playerData.getTeamRunner(); }
 	public PlayerTeam getTeamHunter() { return playerData.getTeamHunter(); }
-	public ServerPlayer[] getHuntersArray() { return playerData.getListHunters(); }
-	public ServerPlayer[] getRunnersArray() { return playerData.getListRunners(); }
+	public ServerPlayer[] getHuntersArray() { return playerData.getHunters(); }
+	public ServerPlayer[] getRunnersArray() { return playerData.getRunners(); }
 
 	public static boolean isHunterAtGameState(Player player, GameState targetGameState) {
 		if (player.getTeam() == null || currentState != targetGameState)
@@ -289,48 +292,31 @@ public class Game {
 		return false;
 	}
 
-	private void lockHuntersPos(TickEvent.ServerTickEvent event) {
-		PlayerList playerList = event.getServer().getPlayerList();
-		for (ServerPlayer player : playerList.getPlayers())
-			if (playerData.isHunter(player)) {
-				Vec3 coords = playerData.getHuntersStartCoords().get(player.getName().getString());
-				Vec3 currentPlayerCoords = player.getPosition(1);
+	private void teleportIfMoving(final ServerPlayer serverPlayer) {
+		Vec3 prevPos = playerData.getCoords(serverPlayer);
+		Vec3 currentPos = serverPlayer.getPosition(1);
 
-				if (currentPlayerCoords.x != coords.x ||
-						currentPlayerCoords.y != coords.y ||
-						currentPlayerCoords.z != coords.z) {
-					player.teleportTo(coords.x, coords.y, coords.z);
-				}
-			}
+		if (currentPos.x != prevPos.x ||
+			currentPos.y != prevPos.y ||
+			currentPos.z != prevPos.z)
+			serverPlayer.teleportTo(prevPos.x, prevPos.y, prevPos.z);
 	}
 
-	private void lockRunnersPos(TickEvent.ServerTickEvent event) {
-		PlayerList playerList = event.getServer().getPlayerList();
-		for (ServerPlayer player : playerList.getPlayers())
-			if (playerData.isRunner(player)) {
-				Vec3 coords = playerData.getRunnersStartCoords().get(player.getName().getString());
-				Vec3 currentPlayerCoords = player.getPosition(1);
-
-				if (currentPlayerCoords.x != coords.x ||
-						currentPlayerCoords.y != coords.y ||
-						currentPlayerCoords.z != coords.z) {
-					player.teleportTo(coords.x, coords.y, coords.z);
-				}
-			}
+	private void lockHuntersPos() {
+		for (ServerPlayer player : playerData.getHunters())
+			if (playerData.isHunter(player))
+				teleportIfMoving(player);
 	}
 
-	private void lockPlayersPos(TickEvent.ServerTickEvent event) {
-		PlayerList playerList = event.getServer().getPlayerList();
-		for (ServerPlayer player : playerList.getPlayers()) {
-			Vec3 coords = playerData.getPlayersPrevCoords().get(player.getName().getString());
-			Vec3 currentPlayerCoords = player.getPosition(1);
+	private void lockRunnersPos() {
+		for (ServerPlayer player : playerData.getRunners())
+			if (playerData.isRunner(player))
+				teleportIfMoving(player);
+	}
 
-			if (currentPlayerCoords.x != coords.x ||
-					currentPlayerCoords.y != coords.y ||
-					currentPlayerCoords.z != coords.z) {
-				player.teleportTo(coords.x, coords.y, coords.z);
-			}
-		}
+	private void lockPlayersPos() {
+		for (ServerPlayer player : playerData.getPlayers())
+			teleportIfMoving(player);
 	}
 
 	public enum GameState {
@@ -341,14 +327,18 @@ public class Game {
 	private static GameState prevState = GameState.NULL;
 	private boolean runnerWins = true;
 
-	public static int getDimensionID(ResourceKey<Level> dimension) {
+	public ServerPlayer getPlayer(UUID uuid) {
+		return server.getPlayerList().getPlayer(uuid);
+	}
+
+	public static DimensionID getDimensionID(final ResourceKey<Level> dimension) {
 		if (dimension == Level.OVERWORLD)
-			return 0;
+			return DimensionID.OVERWORLD;
 		if (dimension == Level.NETHER)
-			return 1;
+			return DimensionID.NETHER;
 		if (dimension == Level.END)
-			return 2;
-		return -1;
+			return DimensionID.END;
+		return DimensionID.NULL;
 	}
 
 	public static int getDimensionIDByName(String name) {

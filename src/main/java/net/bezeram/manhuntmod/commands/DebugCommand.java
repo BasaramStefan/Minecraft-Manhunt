@@ -2,9 +2,11 @@ package net.bezeram.manhuntmod.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.Time;
+import net.bezeram.manhuntmod.game.players.PlayerCoords;
 import net.bezeram.manhuntmod.game.players.PlayerData;
 import net.bezeram.manhuntmod.game.players.PlayerRespawner;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
@@ -157,12 +159,11 @@ public class DebugCommand {
 				}))
 				.then(Commands.literal("PrintLastPlayerPositions")
 						.executes((command) -> {
-							Player player = command.getSource().getPlayerOrException();
-							String playerName = player.getName().getString();
+							ServerPlayer player = command.getSource().getPlayerOrException();
 							Vec3[] positions = new Vec3[]{
-									PlayerData.PlayerLastLocations.Overworld.getLastPosition(playerName),
-									PlayerData.PlayerLastLocations.Nether.getLastPosition(playerName),
-									PlayerData.PlayerLastLocations.End.getLastPosition(playerName)
+								Game.get().getPlayerData().getCoords(player),
+								Game.get().getPlayerData().getCoords(player),
+								Game.get().getPlayerData().getCoords(player)
 							};
 
 							player.displayClientMessage(Component.literal(

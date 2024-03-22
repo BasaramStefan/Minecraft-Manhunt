@@ -1,5 +1,7 @@
 package net.bezeram.manhuntmod.game.players;
 
+import net.bezeram.manhuntmod.enums.DimensionID;
+import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.Timer;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -9,60 +11,51 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
-import net.minecraftforge.event.TickEvent;
 
-import java.util.Hashtable;
+import java.util.UUID;
 
 public class PlayerData {
-    private final PlayerRespawner playerRespawner;
-    private final PlayerArray playerArray;
-    private final PlayerList playerList;
-
-    private final PlayerTeam teamRunner;
-    private final PlayerTeam teamHunter;
-
-    private final ServerPlayer[] listRunners;
-    private final ServerPlayer[] listHunters;
-
-    private final Hashtable<String, Vec3> huntersStartCoords = new Hashtable<>();
-    private final Hashtable<String, Vec3> runnersStartCoords = new Hashtable<>();
-    private final Hashtable<String, Vec3> playersPrevCoords = new Hashtable<>();
-
     public PlayerData(PlayerTeam teamRunner, PlayerTeam teamHunter,
                       PlayerList playerList, final Timer timer) {
+        this.list = playerList;
         this.teamRunner = teamRunner;
         this.teamHunter = teamHunter;
-        this.listRunners = new ServerPlayer[teamHunter.getPlayers().size()];
-        this.listHunters = new ServerPlayer[teamHunter.getPlayers().size()];
+        this.runnersArray = new ServerPlayer[teamHunter.getPlayers().size()];
+        this.huntersArray = new ServerPlayer[teamHunter.getPlayers().size()];
+        this.prevCoordsOverworld = new PlayerCoords(this);
+        this.prevCoordsNether = new PlayerCoords(this);
+        this.prevCoordsEnd = new PlayerCoords(this);
+
         int indexHunters = 0;
         int indexRunners = 0;
-        for (ServerPlayer player : playerList.getPlayers()) {
-            if (isHunter(player)) {
-                huntersStartCoords.put(player.getName().getString(), player.getPosition(1));
-                listHunters[indexHunters++] = player;
-            }
-            else if (isRunner(player)) {
-                runnersStartCoords.put(player.getName().getString(), player.getPosition(1));
-                listRunners[indexRunners++] = player;
-            }
+        for (ServerPlayer player : playerList.getPlayers())
+            if (isHunter(player))
+                huntersArray[indexHunters++] = player;
+            else if (isRunner(player))
+                runnersArray[indexRunners++] = player;
+
+        this.MAIDarray = new MAIDArray(runnersArray, huntersArray);
+        for (int i : MAIDarray.getRunnersIDs()) {
+            ServerPlayer player = MAIDarray.getPlayer(i);
+            PlayerCoords playerCoords = getCoords(player.getLevel().dimension());
+
+            playerCoords.update(player.getUUID(), player.getPosition(1));
+        }
+        for (int i : MAIDarray.getHuntersIDs()) {
+            ServerPlayer player = MAIDarray.getPlayer(i);
+            PlayerCoords playerCoords = getCoords(player.getLevel().dimension());
+
+            playerCoords.update(player.getUUID(), player.getPosition(1));
         }
 
         this.playerRespawner = new PlayerRespawner(timer);
-        this.playerArray = new PlayerArray(listRunners, listHunters);
-        this.playerList = playerList;
     }
 
-    public final PlayerRespawner getPlayerRespawner() { return playerRespawner;}
-    public final PlayerArray getPlayerArray() { return playerArray; }
-    public final PlayerList getPlayerList() { return playerList; }
-
-    public final Hashtable<String, Vec3> getHuntersStartCoords() { return huntersStartCoords; }
-    public final Hashtable<String, Vec3> getRunnersStartCoords() { return runnersStartCoords; }
-    public final Hashtable<String, Vec3> getPlayersPrevCoords() { return playersPrevCoords; }
-
-    public void updatePlayersPrevPosition() {
-        for (ServerPlayer player : playerList.getPlayers())
-            playersPrevCoords.put(player.getName().getString(), player.getPosition(1));
+    public void updateCoords() {
+        for (ServerPlayer player : list.getPlayers()) {
+            PlayerCoords coords = getCoords(player.getLevel().dimension());
+            coords.update(player.getUUID(), player.getPosition(1));
+        }
     }
 
     public boolean isHunter(Player player) {
@@ -93,7 +86,7 @@ public class PlayerData {
         return false;
     }
 
-    public boolean isInGame(Player player) {
+    public boolean isManhuntPlayer(Player player) {
         return isRunner(player) || isHunter(player);
     }
 
@@ -105,49 +98,78 @@ public class PlayerData {
         return teamHunter;
     }
 
-    public ServerPlayer[] getListRunners() {
-        return listRunners;
+    public ServerPlayer[] getRunners() {
+        return runnersArray;
     }
 
-    public ServerPlayer[] getListHunters() {
-        return listHunters;
+    public ServerPlayer[] getHunters() {
+        return huntersArray;
     }
 
-    public enum PlayerLastLocations {
-        Overworld, Nether, End;
+    public void updateAllCoords() {
+        for (ServerPlayer player : getList().getPlayers()) {
+            ServerLevel level = player.getLevel();
+            PlayerCoords coords = getCoords(level.dimension());
 
-        public void update(String playerName, Vec3 newPosition) {
-            lastPlayerPosition.put(playerName, newPosition);
+            if (coords != null)
+                coords.update(player.getUUID(), player.getPosition(0));
         }
-
-        public static void updateAll(TickEvent.ServerTickEvent event) {
-            PlayerList allPlayers = event.getServer().getPlayerList();
-            for (ServerPlayer player : allPlayers.getPlayers()) {
-                ServerLevel level = player.getLevel();
-                String name = player.getName().getString();
-                Vec3 newPosition = player.getPosition(0);
-
-                PlayerLastLocations location = getByDimension(level.dimension());
-
-                if (location != null)
-                    location.update(name, newPosition);
-            }
-        }
-
-        public static PlayerLastLocations getByDimension(ResourceKey<Level> dimension) {
-            if (dimension == Level.OVERWORLD)
-                return PlayerLastLocations.Overworld;
-            else if (dimension == Level.NETHER)
-                return PlayerLastLocations.Nether;
-            else if (dimension == Level.END)
-                return PlayerLastLocations.End;
-            return null;
-        }
-
-        public Vec3 getLastPosition(String playerName) {
-            return lastPlayerPosition.get(playerName);
-        }
-
-        private final Hashtable<String, Vec3> lastPlayerPosition = new Hashtable<>();
     }
+
+    public void update(final UUID uuid) {
+        ServerPlayer player = Game.get().getPlayer(uuid);
+        PlayerCoords coords = getCoords(player.getLevel().dimension());
+        if (coords != null)
+            coords.update(uuid, player.getPosition(0));
+    }
+
+    public final PlayerCoords getCoords(final DimensionID dimensionID) {
+        return switch (dimensionID) {
+            case OVERWORLD -> prevCoordsOverworld;
+            case NETHER -> prevCoordsNether;
+            case END -> prevCoordsEnd;
+            default -> null;
+        };
+    }
+    public final PlayerCoords getCoords(final ResourceKey<Level> dimension) {
+        return switch (Game.getDimensionID(dimension)) {
+            case OVERWORLD -> prevCoordsOverworld;
+            case NETHER -> prevCoordsNether;
+            case END -> prevCoordsEnd;
+            default -> null;
+        };
+    }
+    public final Vec3 getCoords(final ServerPlayer serverPlayer) {
+        PlayerCoords coords = getCoords(serverPlayer.getLevel().dimension());
+        return coords.get(serverPlayer.getUUID());
+    }
+    public final PlayerCoords getPrevCoordsOverworld() { return prevCoordsOverworld; }
+    public final PlayerCoords getPrevCoordsNether() { return prevCoordsNether; }
+    public final PlayerCoords getPrevCoordsEnd() { return prevCoordsEnd; }
+
+    public final PlayerRespawner getPlayerRespawner() { return playerRespawner;}
+    public final MAIDArray getPlayerArray() { return MAIDarray; }
+    public final PlayerList getList() { return list; }
+    public final ServerPlayer[] getPlayers() {
+        ServerPlayer[] players = new ServerPlayer[runnersArray.length + huntersArray.length];
+        System.arraycopy(runnersArray, 0, players, 0, runnersArray.length);
+        System.arraycopy(huntersArray, 0, players, runnersArray.length, huntersArray.length);
+
+        return players;
+    }
+
+    private final PlayerRespawner playerRespawner;
+
+    private final MAIDArray MAIDarray;
+    private final PlayerList list;
+
+    private final PlayerTeam teamRunner;
+    private final PlayerTeam teamHunter;
+
+    private final ServerPlayer[] runnersArray;
+    private final ServerPlayer[] huntersArray;
+
+    private final PlayerCoords prevCoordsOverworld;
+    private final PlayerCoords prevCoordsNether;
+    private final PlayerCoords prevCoordsEnd;
 }

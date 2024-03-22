@@ -1,7 +1,7 @@
 package net.bezeram.manhuntmod.networking.packets;
 
 import net.bezeram.manhuntmod.game.Game;
-import net.bezeram.manhuntmod.game.players.PlayerArray;
+import net.bezeram.manhuntmod.game.players.MAIDArray;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -62,34 +62,34 @@ public class HunterCompassUseC2SPacket {
 					1.0F);
 			assert tag != null;
 			int targetPlayerId = tag.getInt(HunterCompassItem.TAG_TARGET_PLAYER);
-			PlayerArray playerArray = Game.get().getPlayerData().getPlayerArray();
+			MAIDArray MAIDArray = Game.get().getPlayerData().getPlayerArray();
 
-			assert playerArray != null;
+			assert MAIDArray != null;
 
 			if (!shiftPressed) {
 				// Toggling to runner
-				int newID = playerArray.cycleRunners(targetPlayerId);
+				int newID = MAIDArray.cycleRunners(targetPlayerId);
 				tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
 
-				String newTargetName = playerArray.getPlayer(newID).getName().getString();
+				String newTargetName = MAIDArray.getPlayer(newID).getName().getString();
 				itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
 				player.displayClientMessage(Component.literal("Tracking " + newTargetName), true);
 			}
 			else {
 				// Toggling to hunter
-				int newID = playerArray.cycleHunters(targetPlayerId);
+				int newID = MAIDArray.cycleHunters(targetPlayerId);
 				// check if the player cycled to is the same player using the compass
-				if (playerArray.samePlayer(player, newID)) {
-					if (playerArray.getHunterCount() == 1) {
+				if (MAIDArray.samePlayer(player, newID)) {
+					if (MAIDArray.getHunterCount() == 1) {
 						// Only one hunter in the team -> cancel use
 						return;
 					}
 
 					// Cycle again
-					newID = playerArray.cycleHunters(newID);
+					newID = MAIDArray.cycleHunters(newID);
 				}
 
-				String newTargetName = playerArray.getPlayer(newID).getName().getString();
+				String newTargetName = MAIDArray.getPlayer(newID).getName().getString();
 				tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
 				itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
 				player.displayClientMessage(Component.literal("Tracking " + newTargetName), true);

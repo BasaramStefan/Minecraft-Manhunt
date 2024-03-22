@@ -1,0 +1,108 @@
+package net.bezeram.manhuntmod.game.players;
+
+import net.bezeram.manhuntmod.game.Game;
+import net.minecraft.server.level.ServerPlayer;
+
+import java.util.UUID;
+
+public class MAIDArray {
+    public MAIDArray(ServerPlayer[] runners, ServerPlayer[] hunters) {
+        int runnersCount = runners.length;
+        int huntersCount = hunters.length;
+        this.runnersCount = runnersCount;
+        this.playerArray = new UUID[runnersCount + huntersCount];
+        this.prevRunnerIndex = 0;
+        this.prevHunterIndex = runnersCount;
+
+        int indexPlayers = 0;
+        for (ServerPlayer runner : runners) {
+            playerArray[indexPlayers] = runner.getUUID();
+            indexPlayers++;
+        }
+
+        for (ServerPlayer hunter : hunters) {
+            playerArray[indexPlayers] = hunter.getUUID();
+            indexPlayers++;
+        }
+    }
+
+    public int cycleRunners(int ID) {
+        ID = (ID + 1) % runnersCount;
+        return ID;
+    }
+
+    public int cycleHunters(int ID) {
+        if (ID < runnersCount)
+            return runnersCount;
+        return (ID + 1 - runnersCount) % getHunterCount() + runnersCount;
+    }
+
+    public boolean samePlayer(final ServerPlayer player, int ID) {
+        return player.getUUID() == playerArray[ID];
+    }
+    public boolean samePlayer(final UUID uuid, int ID) {
+        return uuid == playerArray[ID];
+    }
+
+    public int getRunnersCount() { return runnersCount; }
+    public int getHunterCount() { return playerArray.length - runnersCount; }
+    public int getPlayerCount() { return playerArray.length; }
+    public int getFirstRunnerID() { return 0; }
+    public int getFirstHunterID() { return runnersCount; }
+
+    public final ServerPlayer getPlayer(int index) {
+        return Game.get().getPlayer(playerArray[index]);
+    }
+
+    public final UUID getPlayerUUID(int index) { return playerArray[index]; }
+    public final UUID getFirstRunner() { return playerArray[0]; }
+    public final UUID getFirstHunter() { return playerArray[runnersCount]; }
+
+    public int getIDByUUID(final UUID uuid) {
+        for (int i = 0; i < playerArray.length; i++)
+            if (playerArray[i].equals(uuid))
+                return i;
+        return -1;
+    }
+
+    public boolean isRunner(int ID) { return ID >= 0 && ID < runnersCount; }
+    public boolean isHunter(int ID) { return ID >= runnersCount && ID < playerArray.length; }
+
+    public void setPrevHunterID(int index) {
+        prevHunterIndex = index;
+    }
+
+    public void setPrevRunnerID(int index) {
+        prevRunnerIndex = index;
+    }
+
+    public int getPrevHunterID() {
+        return prevHunterIndex;
+    }
+
+    public int getPrevRunnerID() {
+        return prevRunnerIndex;
+    }
+
+    private final UUID[] playerArray;
+    private final int runnersCount;
+
+    private int prevRunnerIndex;
+    private int prevHunterIndex;
+
+    public int[] getRunnersIDs() {
+        int[] ids = new int[runnersCount];
+
+        for (int i = 0; i < runnersCount; i++)
+            ids[i] = i;
+        return ids;
+    }
+
+    public int[] getHuntersIDs() {
+        int[] ids = new int[getHunterCount()];
+
+        for (int i = runnersCount, j = 0; i < playerArray.length; i++, j++)
+            ids[j] = i;
+        return ids;
+    }
+}

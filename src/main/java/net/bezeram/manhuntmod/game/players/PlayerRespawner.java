@@ -31,7 +31,7 @@ public class PlayerRespawner {
     }
 
     public void playerRespawned(ServerPlayer serverPlayer) {
-        if (ManhuntGameRules.SAVE_INVENTORIES.keep) {
+        if (ManhuntGameRules.keepPartialInventory()) {
             String playerName = serverPlayer.getDisplayName().getString();
 
             if (!isInventorySaved(playerName)) {
