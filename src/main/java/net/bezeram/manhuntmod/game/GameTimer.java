@@ -5,7 +5,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.players.PlayerList;
 import net.minecraftforge.event.TickEvent;
 
-public class Timer {
+import static net.bezeram.manhuntmod.game.Time.round;
+
+public class GameTimer {
 	private static Time RUNNER_LIMIT 			= Time.TimeMinutes(90);
 	private static Time RUNNER_START 			= Time.TimeSeconds(10);
 	private static Time HEADSTART 				= Time.TimeSeconds(30);
@@ -62,13 +64,8 @@ public class Timer {
 	public static Time getPauseTime() 		{ return PAUSE; 	 	}
 	public static Time getResumeTime() 		{ return RESUME; 	 	}
 
-	public static long minutesToTicks(double minutes) 	{ return (long)(minutes * 2400.f); }
-	public static long secondsToTicks(double seconds) 	{ return (long)(seconds * 40.f); }
-	public static double ticksToSeconds(long ticks) 	{ return ((double)ticks) / 40.f; }
-	public static double ticksToMinutes(long ticks) 	{ return ((double)ticks) / 2400.f; }
-
-	public Time getGameElapsed()        { return activeGame; }
-	public Time getPlayerPositionElapsed() { return activePlayerPosition; }
+	public Time getGameElapsed()            { return activeGame; }
+	public Time getPlayerPositionElapsed()  { return activePlayerPosition; }
 
 	public void displayHeadstartHint(TickEvent.ServerTickEvent event) {
 		PlayerList playerList = event.getServer().getPlayerList();
@@ -98,11 +95,6 @@ public class Timer {
 
 			prevActiveResume = activeResume.clone();
 		}
-	}
-
-	private static double round(double value, int precision) {
-		int scale = (int) Math.pow(10, precision);
-		return (double) Math.round(value * scale) / scale;
 	}
 
 	private Time activePlayerPosition = new Time();

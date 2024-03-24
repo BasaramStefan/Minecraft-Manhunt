@@ -14,6 +14,11 @@ public class PlayerCoords {
     }
 
     public void update(final UUID uuid) {
+        if (!Game.inSession()) {
+            System.out.println("PlayerCoords::update() - Game not in session\n");
+            return;
+        }
+
         ServerPlayer player = Game.get().getPlayer(uuid);
         PlayerCoords coords = playerData.getCoords(player.getLevel().dimension());
 

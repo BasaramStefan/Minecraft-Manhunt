@@ -6,8 +6,6 @@ import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.Time;
-import net.bezeram.manhuntmod.game.players.PlayerCoords;
-import net.bezeram.manhuntmod.game.players.PlayerData;
 import net.bezeram.manhuntmod.game.players.PlayerRespawner;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
@@ -15,6 +13,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.data.registries.VanillaRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -161,16 +160,36 @@ public class DebugCommand {
 						.executes((command) -> {
 							ServerPlayer player = command.getSource().getPlayerOrException();
 							Vec3[] positions = new Vec3[]{
-								Game.get().getPlayerData().getCoords(player),
-								Game.get().getPlayerData().getCoords(player),
-								Game.get().getPlayerData().getCoords(player)
+								Game.get().getPlayerData().getCoords(DimensionID.OVERWORLD).get(player.getUUID()),
+								Game.get().getPlayerData().getCoords(DimensionID.NETHER).get(player.getUUID()),
+								Game.get().getPlayerData().getCoords(DimensionID.END).get(player.getUUID())
 							};
 
+							ItemStack itemStack0 = player.getInventory().getItem(0);
+							if (itemStack0.getItem() instanceof HunterCompassItem) {
+								GlobalPos globalPos =
+										HunterCompassItem.getPlayerPosition(player.getLevel(),
+												itemStack0.getOrCreateTag());
+
+								if (globalPos == null)
+									player.displayClientMessage(Component.literal(
+											"HunterCompassPos is null"), false);
+								else
+									player.displayClientMessage(Component.literal("HunterCompassPos: " +
+											globalPos), false);
+							}
+							else
+								player.displayClientMessage(Component.literal(
+									"Item in slot 0 is not a hunter compass"), false);
+
 							player.displayClientMessage(Component.literal(
-									"(" + positions[0].x + ", " + positions[0].y + ", " + positions[0].z + ")   " +
-											"(" + positions[1].x + ", " + positions[1].y + ", " + positions[1].z + ")   " +
-											"(" + positions[2].x + ", " + positions[2].y + ", " + positions[2].z + ")"),
-									true);
+									"(" + Math.round(positions[0].x) + ", " + Math.round(positions[0].y)
+											+ ", " + Math.round(positions[0].z) + ")    "
+											+ "(" + Math.round(positions[1].x) + ", " + Math.round(positions[1].y)
+											+ ", " + Math.round(positions[1].z) + ")    "
+											+ "(" + Math.round(positions[2].x) + ", " + Math.round(positions[2].y)
+											+ ", " + Math.round(positions[2].z) + ")"),
+									false);
 							return 0;
 				}))
 				.then(Commands.literal("GetCompassTags")
@@ -189,7 +208,7 @@ public class DebugCommand {
 								}
 
 								int trackedPlayerID = tag.getInt(HunterCompassItem.TAG_TARGET_PLAYER);
-								boolean trackingPlayer = tag.getBoolean(HunterCompassItem.TAG_TARGET_TRACKED);
+								boolean trackingPlayer = tag.getBoolean(HunterCompassItem.TAG_TARGET_TRACKING);
 								ServerPlayer trackedPlayer = Game.get().getPlayerData().getPlayerArray().getPlayer(trackedPlayerID);
 								String trackedPlayerName = trackedPlayer.getName().getString();
 

@@ -4,7 +4,6 @@ import com.mojang.brigadier.context.CommandContext;
 import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game.players.PlayerData;
-import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
@@ -28,21 +27,21 @@ public class Game {
 
 	private Game(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList, MinecraftServer server) {
 		this.server = server;
-		currentState = GameState.START;
 		prevState = currentState;
 		ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
 
-		this.timer = new Timer();
-		this.playerData = new PlayerData(teamRunner, teamHunter, playerList, timer);
+		this.timer = new GameTimer();
+		this.playerData = new PlayerData(teamRunner, teamHunter, playerList, timer, server);
 	}
 
 	public static void init(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList,
 	                        MinecraftServer server) {
 		GAME_INSTANCE = new Game(teamRunner, teamHunter, playerList, server);
+		currentState = GameState.START;
 	}
 
 	public static boolean inSession() {
-		return GAME_INSTANCE != null;
+		return currentState != GameState.NULL;
 	}
 
 	public static Game get() {
@@ -252,7 +251,7 @@ public class Game {
 			}
 			case ERASE -> {
 				ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
-				HunterCompassItem.clearCompassList();
+				currentState = GameState.NULL;
 			}
 		}
 	}
@@ -328,8 +327,12 @@ public class Game {
 	private boolean runnerWins = true;
 
 	public ServerPlayer getPlayer(UUID uuid) {
+		if (!Game.inSession())
+			return null;
+
 		return server.getPlayerList().getPlayer(uuid);
 	}
+	public ServerPlayer getPlayer(int MAID) { return playerData.getPlayer(MAID); }
 
 	public static DimensionID getDimensionID(final ResourceKey<Level> dimension) {
 		if (dimension == Level.OVERWORLD)
@@ -358,28 +361,20 @@ public class Game {
 		}
 	}
 
-	public static String getDimensionNameByID(int ID) {
-		switch (ID) {
-			case 0 -> {
-				return "Overworld";
-			}
-			case 1 -> {
-				return "Nether";
-			}
-			case 2 -> {
-				return "End";
-			}
-			default -> {
-				return null;
-			}
-		}
+	public static ResourceKey<Level> getDimensionByID(DimensionID ID) {
+		return switch (ID) {
+			case OVERWORLD -> Level.OVERWORLD;
+			case NETHER -> Level.NETHER;
+			case END -> Level.END;
+			default -> null;
+		};
 	}
 
 	public final PlayerData getPlayerData() { return playerData; }
 
 	private final PlayerData playerData;
 
-	private final Timer timer;
+	private final GameTimer timer;
 
 	private final MinecraftServer server;
 }

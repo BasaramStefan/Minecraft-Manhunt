@@ -2,8 +2,9 @@ package net.bezeram.manhuntmod.game.players;
 
 import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.game.Game;
-import net.bezeram.manhuntmod.game.Timer;
+import net.bezeram.manhuntmod.game.GameTimer;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
@@ -16,8 +17,9 @@ import java.util.UUID;
 
 public class PlayerData {
     public PlayerData(PlayerTeam teamRunner, PlayerTeam teamHunter,
-                      PlayerList playerList, final Timer timer) {
+                      PlayerList playerList, final GameTimer timer, MinecraftServer server) {
         this.list = playerList;
+        this.server = server;
         this.teamRunner = teamRunner;
         this.teamHunter = teamHunter;
         this.runnersArray = new ServerPlayer[teamHunter.getPlayers().size()];
@@ -34,18 +36,20 @@ public class PlayerData {
             else if (isRunner(player))
                 runnersArray[indexRunners++] = player;
 
-        this.MAIDarray = new MAIDArray(runnersArray, huntersArray);
-        for (int i : MAIDarray.getRunnersIDs()) {
-            ServerPlayer player = MAIDarray.getPlayer(i);
+        this.compassArray = new CompassArray(runnersArray, huntersArray, server);
+        for (int i : compassArray.getRunnersIDs()) {
+            ServerPlayer player = compassArray.getPlayer(i);
             PlayerCoords playerCoords = getCoords(player.getLevel().dimension());
 
             playerCoords.update(player.getUUID(), player.getPosition(1));
+            System.out.println(player.getName().getString() + " UUID: " + player.getStringUUID() + "\n");
         }
-        for (int i : MAIDarray.getHuntersIDs()) {
-            ServerPlayer player = MAIDarray.getPlayer(i);
+        for (int i : compassArray.getHuntersIDs()) {
+            ServerPlayer player = compassArray.getPlayer(i);
             PlayerCoords playerCoords = getCoords(player.getLevel().dimension());
 
             playerCoords.update(player.getUUID(), player.getPosition(1));
+            System.out.println(player.getName().getString() + " UUID: " + player.getStringUUID() + "\n");
         }
 
         this.playerRespawner = new PlayerRespawner(timer);
@@ -117,6 +121,11 @@ public class PlayerData {
     }
 
     public void update(final UUID uuid) {
+        if (!Game.inSession()) {
+            System.out.println("PlayerData::update() - Game not in session\n");
+            return;
+        }
+
         ServerPlayer player = Game.get().getPlayer(uuid);
         PlayerCoords coords = getCoords(player.getLevel().dimension());
         if (coords != null)
@@ -148,7 +157,11 @@ public class PlayerData {
     public final PlayerCoords getPrevCoordsEnd() { return prevCoordsEnd; }
 
     public final PlayerRespawner getPlayerRespawner() { return playerRespawner;}
-    public final MAIDArray getPlayerArray() { return MAIDarray; }
+    public final CompassArray getPlayerArray() { return compassArray; }
+    public final ServerPlayer getPlayer(int MAID) {
+        return compassArray.getPlayer(MAID);
+    }
+
     public final PlayerList getList() { return list; }
     public final ServerPlayer[] getPlayers() {
         ServerPlayer[] players = new ServerPlayer[runnersArray.length + huntersArray.length];
@@ -160,7 +173,7 @@ public class PlayerData {
 
     private final PlayerRespawner playerRespawner;
 
-    private final MAIDArray MAIDarray;
+    private final CompassArray compassArray;
     private final PlayerList list;
 
     private final PlayerTeam teamRunner;
@@ -172,4 +185,6 @@ public class PlayerData {
     private final PlayerCoords prevCoordsOverworld;
     private final PlayerCoords prevCoordsNether;
     private final PlayerCoords prevCoordsEnd;
+
+    private final MinecraftServer server;
 }

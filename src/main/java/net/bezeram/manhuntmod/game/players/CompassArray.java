@@ -1,18 +1,20 @@
 package net.bezeram.manhuntmod.game.players;
 
 import net.bezeram.manhuntmod.game.Game;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.UUID;
 
-public class MAIDArray {
-    public MAIDArray(ServerPlayer[] runners, ServerPlayer[] hunters) {
+public class CompassArray {
+    public CompassArray(ServerPlayer[] runners, ServerPlayer[] hunters, final MinecraftServer server) {
         int runnersCount = runners.length;
         int huntersCount = hunters.length;
         this.runnersCount = runnersCount;
         this.playerArray = new UUID[runnersCount + huntersCount];
         this.prevRunnerIndex = 0;
         this.prevHunterIndex = runnersCount;
+        this.server = server;
 
         int indexPlayers = 0;
         for (ServerPlayer runner : runners) {
@@ -38,10 +40,10 @@ public class MAIDArray {
     }
 
     public boolean samePlayer(final ServerPlayer player, int ID) {
-        return player.getUUID() == playerArray[ID];
+        return player.getUUID().equals(playerArray[ID]);
     }
     public boolean samePlayer(final UUID uuid, int ID) {
-        return uuid == playerArray[ID];
+        return uuid.equals(playerArray[ID]);
     }
 
     public int getRunnersCount() { return runnersCount; }
@@ -50,15 +52,23 @@ public class MAIDArray {
     public int getFirstRunnerID() { return 0; }
     public int getFirstHunterID() { return runnersCount; }
 
-    public final ServerPlayer getPlayer(int index) {
-        return Game.get().getPlayer(playerArray[index]);
+    public final ServerPlayer getPlayer(int MAID) {
+        if (!Game.inSession()) {
+            System.out.println("CompassArray::getPlayer() - Game not in session\n");
+            return null;
+        }
+
+        if (MAID < 0 || MAID > getPlayerCount() || !Game.inSession())
+            return null;
+
+        return server.getPlayerList().getPlayer(playerArray[MAID]);
     }
 
     public final UUID getPlayerUUID(int index) { return playerArray[index]; }
     public final UUID getFirstRunner() { return playerArray[0]; }
     public final UUID getFirstHunter() { return playerArray[runnersCount]; }
 
-    public int getIDByUUID(final UUID uuid) {
+    public int getMAIDByUUID(final UUID uuid) {
         for (int i = 0; i < playerArray.length; i++)
             if (playerArray[i].equals(uuid))
                 return i;
@@ -89,6 +99,8 @@ public class MAIDArray {
 
     private int prevRunnerIndex;
     private int prevHunterIndex;
+
+    private MinecraftServer server;
 
     public int[] getRunnersIDs() {
         int[] ids = new int[runnersCount];

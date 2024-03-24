@@ -2,25 +2,23 @@ package net.bezeram.manhuntmod.game.players;
 
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.ManhuntGameRules;
-import net.bezeram.manhuntmod.game.Timer;
+import net.bezeram.manhuntmod.game.GameTimer;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.dedicated.ServerWatchdog;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import org.apache.logging.log4j.core.jmx.Server;
 
 import java.util.Hashtable;
 
 public class PlayerRespawner {
     private final Hashtable<String, Inventory> playerInventories = new Hashtable<>();
-    private final Timer timer;
+    private final GameTimer timer;
 
-    public PlayerRespawner(final Timer timer) { this.timer = timer; }
+    public PlayerRespawner(final GameTimer timer) { this.timer = timer; }
 
     public static void playerRespawnedStatic(final ServerPlayer serverPlayer) {
         Game.get().getPlayerData().getPlayerRespawner().playerRespawned(serverPlayer);

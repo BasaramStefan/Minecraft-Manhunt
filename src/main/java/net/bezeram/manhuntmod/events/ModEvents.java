@@ -226,14 +226,5 @@ public class ModEvents {
 
 			PlayerRespawner.playerRespawnedStatic(serverPlayer);
 		}
-
-		@SubscribeEvent
-		public static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
-			// TODO remove this code when changing the Hunter Compass item
-			if (event.getEntity().getLevel().isClientSide())
-				return;
-
-			HunterCompassItem.onPlayerChangeDimension((ServerPlayer) event.getEntity(), event.getEntity().getLevel());
-		}
     }
 }

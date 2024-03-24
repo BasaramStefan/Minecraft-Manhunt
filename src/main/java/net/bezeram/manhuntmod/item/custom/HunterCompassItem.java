@@ -1,23 +1,31 @@
 package net.bezeram.manhuntmod.item.custom;
 
+import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.game.Game;
-import net.bezeram.manhuntmod.game.players.MAIDArray;
+import net.bezeram.manhuntmod.game.players.CompassArray;
 import net.bezeram.manhuntmod.networking.ModMessages;
 import net.bezeram.manhuntmod.networking.packets.HunterCompassUseC2SPacket;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Hashtable;
-import java.util.UUID;
 
 public class HunterCompassItem extends Item {
 	/**
@@ -28,48 +36,18 @@ public class HunterCompassItem extends Item {
 	public static final String TAG_TARGET_PLAYER = "TargetPlayer";
 
 	/**
-	 * <p>TargetTracked : bool</p>
+	 * <p>TargetTracked : boolean</p>
 	 * If true, the player is tracked in real time and their current position is used.<br>
 	 * Else, the player's last position in the current dimension is used (can be null).
 	 */
-	public static final String TAG_TARGET_TRACKED = "TargetTracked";
+	public static final String TAG_TARGET_TRACKING = "TargetTracked";
 
-	public HunterCompassItem(Properties properties) {
+	public HunterCompassItem(final Properties properties) {
 		super(properties);
 	}
 
-	public static boolean isCompassTracking(ItemStack itemStack) {
-		CompoundTag tag = itemStack.getTag();
-		return tag != null && tag.contains(TAG_TARGET_TRACKED) && tag.getBoolean(TAG_TARGET_TRACKED);
-	}
-
-	@Override
-	public boolean isFoil(ItemStack itemStack) { return isCompassTracking(itemStack) || super.isFoil(itemStack); }
-
-	public static void addOrUpdateTags(Level compassLevel, CompoundTag tag) {
-		if (compassLevel.isClientSide || !Game.inSession())
-			return;
-		MAIDArray MAIDArray = Game.get().getPlayerData().getPlayerArray();
-
-		if (!tag.contains(TAG_TARGET_PLAYER)) {
-			tag.putInt(TAG_TARGET_PLAYER, 0);
-		}
-
-		ServerPlayer targetPlayer = MAIDArray.getPlayer(tag.getInt(TAG_TARGET_PLAYER));
-//		int runnerDimensionID = Game.getDimensionID(targetPlayer.getLevel().dimension());
-//		int levelDimensionID = Game.getDimensionID(compassLevel.dimension());
-//		tag.putBoolean(TAG_TARGET_TRACKED, runnerDimensionID == levelDimensionID);
-	}
-
-	public static void removeTags(Level level, CompoundTag tag) {
-		if (level.isClientSide || Game.inSession())
-			return;
-
-		// If game has ended, remove the compass tags
-		if (tag.contains(TAG_TARGET_PLAYER))
-			tag.remove(TAG_TARGET_PLAYER);
-		if (tag.contains(TAG_TARGET_TRACKED))
-			tag.remove(TAG_TARGET_TRACKED);
+	public static boolean isCompassTracking(final CompoundTag tag) {
+		return tag != null && tag.contains(TAG_TARGET_TRACKING) && tag.getBoolean(TAG_TARGET_TRACKING);
 	}
 
 	@Override
@@ -80,84 +58,100 @@ public class HunterCompassItem extends Item {
 			boolean shiftPressed = Screen.hasShiftDown();
 			boolean mainHand = interactionHand == InteractionHand.MAIN_HAND;
 			ModMessages.sendToServer(new HunterCompassUseC2SPacket(shiftPressed, mainHand));
-			return InteractionResultHolder.fail(itemUsed);
+			return InteractionResultHolder.success(itemUsed);
 		}
 
 		return InteractionResultHolder.fail(itemUsed);
 	}
 
-	public static void onPlayerChangeDimension(ServerPlayer traveler, Level newLevel) {
-		if (!Game.inSession())
+	@Override
+	@ParametersAreNonnullByDefault
+	public void inventoryTick(ItemStack itemStack, Level level, Entity entity, int itemSlot, boolean isSelected) {
+		if (level.isClientSide())
 			return;
 
-		// If the current compass checked belongs to the traveler, update its dimension before updating the tag
-		UUID travelerUUID = traveler.getUUID();
-//		int newDimensionID = Game.getDimensionID(newLevel.dimension());
-		if (Game.get().getPlayerData().isHunter(traveler)) {
-			for (ItemStack itemStack : traveler.getInventory().items) {
-				if (itemStack.getItem() instanceof HunterCompassItem) {
-					HunterCompassItem.addOrUpdateTags(newLevel, itemStack.getOrCreateTag());
-					StaticCompassType value = allCompasses.get(travelerUUID);
-					value.compassRef = itemStack;
-//					value.dimensionID = newDimensionID;
-				}
-			}
-		}
-
-		// Iterate over all compasses and update their PLAYER_TRACKED tag.
-		for (UUID key : allCompasses.keySet()) {
-			StaticCompassType value = allCompasses.get(key);
-
-			HunterCompassItem.addOrUpdateTags(newLevel, value.compassRef.getOrCreateTag());
-			allCompasses.put(travelerUUID, value);
+		boolean prevValue = itemStack.getOrCreateTag().getBoolean(TAG_TARGET_TRACKING);
+		addOrUpdateTags(level, itemStack.getTag());
+		boolean currentValue = itemStack.getOrCreateTag().getBoolean(TAG_TARGET_TRACKING);
+		if (prevValue != currentValue) {
+			SoundEvent sound = (currentValue) ?  SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE;
+			BlockPos soundPos = new BlockPos(entity.getBlockX(), entity.getBlockY(), entity.getBlockZ());
+			level.playSound(null, soundPos, sound, SoundSource.PLAYERS, 1.f, 1.f);
 		}
 	}
 
-	public static void putGlobalCompass(UUID playerUUID, ItemStack compass, int dimensionID) {
-		if (allCompasses.containsKey(playerUUID)) {
-			StaticCompassType value = allCompasses.get(playerUUID);
-			value.compassRef = compass;
-			value.dimensionID = dimensionID;
-			allCompasses.put(playerUUID, value);
+	/**
+	 * Adds the target player tag (int: MAID) if it doesn't exist and updates the tracking boolean
+	 * depending on if the compass is in the same or different dimension as the player tracked
+	 * @param compassLevel the compass level
+	 * @param tag compass tags
+	 */
+	public static void addOrUpdateTags(final Level compassLevel, CompoundTag tag) {
+		if (compassLevel.isClientSide || !Game.inSession())
+			return;
+		if (!tag.contains(TAG_TARGET_PLAYER))
+			tag.putInt(TAG_TARGET_PLAYER, 0);
+
+		CompassArray compassArray = Game.get().getPlayerData().getPlayerArray();
+		ServerPlayer targetPlayer = compassArray.getPlayer(tag.getInt(TAG_TARGET_PLAYER));
+
+		DimensionID runnerDim = Game.getDimensionID(targetPlayer.getLevel().dimension());
+		DimensionID compassDim = Game.getDimensionID(compassLevel.dimension());
+		tag.putBoolean(TAG_TARGET_TRACKING, runnerDim == compassDim);
+	}
+
+	/**
+	 * Gets the live coords of the player if the compass is actively tracking, or gets the latest coords in that
+	 * dimension.<br>
+	 * Used by the CompassItemPropertyFunction class
+ 	 * @param compassLevel compass level
+	 * @param tag compass tags
+	 * @return coords with a dimension
+	 */
+	public static GlobalPos getPlayerPosition(final ServerLevel compassLevel, final CompoundTag tag) {
+		if (!Game.inSession()) {
+			return null;
+		}
+		if (!tag.contains(TAG_TARGET_PLAYER))
+			tag.putInt(TAG_TARGET_PLAYER, 0);
+		int MAID = tag.getInt(TAG_TARGET_PLAYER);
+		ServerPlayer target = Game.get().getPlayer(MAID);
+
+		return GlobalPos.of(compassLevel.dimension(), getPlayerPosition(isCompassTracking(tag), compassLevel, target));
+	}
+
+	/**
+	 * Get the position of the target player
+	 * @param isTracking is the compass tracking the player live
+	 * @param compassLevel compass level
+	 * @param target targeted player
+	 * @return coordinates along with compass dimension
+	 */
+	public static BlockPos getPlayerPosition(boolean isTracking, ServerLevel compassLevel,
+	                                          final ServerPlayer target) {
+		// Live coords
+		if (isTracking) {
+			Vec3 pos = target.getPosition(1);
+			return new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
 		}
 
-		allCompasses.put(playerUUID, new StaticCompassType(compass, dimensionID));
+		// Get the latest known coords in the compass's dimension of the target player
+		Vec3 pos = Game.get().getPlayerData().getCoords(compassLevel.dimension()).get(target.getUUID());
+		return new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
 	}
 
-	public static void updateGlobalCompass(UUID playerUUID, ItemStack compass, int dimensionID) {
-		StaticCompassType value = allCompasses.get(playerUUID);
-		value.compassRef = compass;
-		value.dimensionID = dimensionID;
+	@Override
+	@ParametersAreNonnullByDefault
+	public boolean isFoil(ItemStack itemStack) { return isCompassTracking(itemStack.getOrCreateTag());}
+
+	public static void removeTags(final Level level, final CompoundTag tag) {
+		if (level.isClientSide || Game.inSession())
+			return;
+
+		// If game has ended, remove the compass tags
+		if (tag.contains(TAG_TARGET_PLAYER))
+			tag.remove(TAG_TARGET_PLAYER);
+		if (tag.contains(TAG_TARGET_TRACKING))
+			tag.remove(TAG_TARGET_TRACKING);
 	}
-
-	public static void updateGlobalCompass(UUID playerUUID, ItemStack compass) {
-		StaticCompassType value = allCompasses.get(playerUUID);
-		value.compassRef = compass;
-	}
-
-	public static void updateGlobalCompass(UUID playerUUID, int dimensionID) {
-		StaticCompassType value = allCompasses.get(playerUUID);
-		value.dimensionID = dimensionID;
-	}
-
-	public static void removeCompassRef(UUID playerUUID) {
-		allCompasses.remove(playerUUID);
-	}
-
-	public static void clearCompassList() {
-		allCompasses.clear();
-	}
-
-	// TODO: Change this, it just does not work when a player is changing dimensions. Think. Refactor
-	static class StaticCompassType {
-		StaticCompassType(ItemStack compassRef, int dimensionID) {
-			this.compassRef = compassRef;
-			this.dimensionID = dimensionID;
-		}
-
-		ItemStack compassRef;
-		int dimensionID;
-	}
-
-	private static final Hashtable<UUID, StaticCompassType> allCompasses = new Hashtable<>();
 }

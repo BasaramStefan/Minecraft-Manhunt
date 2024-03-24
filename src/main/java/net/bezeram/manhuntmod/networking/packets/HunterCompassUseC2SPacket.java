@@ -1,7 +1,7 @@
 package net.bezeram.manhuntmod.networking.packets;
 
 import net.bezeram.manhuntmod.game.Game;
-import net.bezeram.manhuntmod.game.players.MAIDArray;
+import net.bezeram.manhuntmod.game.players.CompassArray;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -13,7 +13,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -36,7 +35,7 @@ public class HunterCompassUseC2SPacket {
 		buff.writeBoolean(mainHand);
 	}
 
-	public boolean handle(Supplier<NetworkEvent.Context> supplier) {
+	public void handle(Supplier<NetworkEvent.Context> supplier) {
 		NetworkEvent.Context context = supplier.get();
 		context.enqueueWork(() -> {
 			// SERVER SIDE
@@ -54,49 +53,49 @@ public class HunterCompassUseC2SPacket {
 			}
 
 			BlockPos playerBlockPos = new BlockPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
-			HunterCompassItem.addOrUpdateTags(level, itemUsed.getOrCreateTag());
-			CompoundTag tag = itemUsed.getTag();
 
-			level.playSound((Player)null, playerBlockPos, SoundEvents.LODESTONE_COMPASS_LOCK, SoundSource.PLAYERS,
+			level.playSound(null, playerBlockPos, SoundEvents.LODESTONE_COMPASS_LOCK, SoundSource.PLAYERS,
 					1.0F,
 					1.0F);
-			assert tag != null;
-			int targetPlayerId = tag.getInt(HunterCompassItem.TAG_TARGET_PLAYER);
-			MAIDArray MAIDArray = Game.get().getPlayerData().getPlayerArray();
 
-			assert MAIDArray != null;
+			HunterCompassItem.addOrUpdateTags(level, itemUsed.getOrCreateTag());
+			CompoundTag tag = itemUsed.getOrCreateTag();
+			int MAID = tag.getInt(HunterCompassItem.TAG_TARGET_PLAYER);
+			CompassArray compassArray = Game.get().getPlayerData().getPlayerArray();
 
 			if (!shiftPressed) {
 				// Toggling to runner
-				int newID = MAIDArray.cycleRunners(targetPlayerId);
+				int newID = compassArray.cycleRunners(MAID);
 				tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
 
-				String newTargetName = MAIDArray.getPlayer(newID).getName().getString();
+				String newTargetName = compassArray.getPlayer(newID).getName().getString();
 				itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
-				player.displayClientMessage(Component.literal("Tracking " + newTargetName), true);
 			}
 			else {
 				// Toggling to hunter
-				int newID = MAIDArray.cycleHunters(targetPlayerId);
+				int newID = compassArray.cycleHunters(MAID);
 				// check if the player cycled to is the same player using the compass
-				if (MAIDArray.samePlayer(player, newID)) {
-					if (MAIDArray.getHunterCount() == 1) {
+				if (compassArray.samePlayer(player, newID)) {
+					if (compassArray.getHunterCount() == 1) {
 						// Only one hunter in the team -> cancel use
 						return;
 					}
 
 					// Cycle again
-					newID = MAIDArray.cycleHunters(newID);
+					newID = compassArray.cycleHunters(newID);
+				}
+				tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
+
+				ServerPlayer targetPlayer = compassArray.getPlayer(newID);
+				if (targetPlayer == null) {
+					itemUsed.setHoverName(Component.literal("Tracking NULL"));
+					return;
 				}
 
-				String newTargetName = MAIDArray.getPlayer(newID).getName().getString();
-				tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
+				String newTargetName = targetPlayer.getName().getString();
 				itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
-				player.displayClientMessage(Component.literal("Tracking " + newTargetName), true);
 			}
 		});
-
-		return true;
 	}
 
 	private final boolean shiftPressed;

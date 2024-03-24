@@ -3,7 +3,7 @@ package net.bezeram.manhuntmod.commands;
 import com.mojang.brigadier.CommandDispatcher;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.ManhuntGameRules;
-import net.bezeram.manhuntmod.game.Timer;
+import net.bezeram.manhuntmod.game.GameTimer;
 import net.bezeram.manhuntmod.item.ModItems;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
@@ -132,17 +132,15 @@ public class ManhuntCommand {
 
 					MinecraftServer server = command.getSource().getServer();
 					Game.init(teamRunner, teamHunter, server.getPlayerList(), server);
+					System.out.println("Successfully initiated Game class\n");
 
-					for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-						if (Game.get().getPlayerData().isHunter(player)) {
-							ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
-							HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
-							if (!player.getInventory().add(compass))
-								player.drop(compass, false);
-//							int dimensionID = Game.getDimensionID(player.getLevel().dimension());
-//							HunterCompassItem.putGlobalCompass(player.getUUID(), compass, dimensionID);
-						}
+					for (ServerPlayer player : Game.get().getHuntersArray()) {
+						ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
+						HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
+						if (!player.getInventory().add(compass))
+							player.drop(compass, false);
 					}
+					System.out.println("Successfully given out compasses\n");
 
 					command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
 								.literal("Starting game in: " + (int)Game.get().getStartDelay().asSeconds() + " " +
@@ -264,7 +262,7 @@ public class ManhuntCommand {
 		if (ManhuntGameRules.TIME_LIMIT) {
 			timer.setDisplayName(Component.literal("Time / Kills").withStyle(ChatFormatting.GOLD));
 
-			if (Timer.getGameTime().asMinutes() > 1) {
+			if (GameTimer.getGameTime().asMinutes() > 1) {
 				scoreboard.getOrCreatePlayerScore("Minutes", timer).setScore(score);
 				scoreboard.resetPlayerScore("Seconds", timer);
 			}
