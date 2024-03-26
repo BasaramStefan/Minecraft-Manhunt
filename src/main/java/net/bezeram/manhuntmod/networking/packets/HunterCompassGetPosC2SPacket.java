@@ -33,6 +33,9 @@ public class HunterCompassGetPosC2SPacket {
         NetworkEvent.Context context = supplier.get();
         context.enqueueWork(() -> {
             // SERVER SIDE
+            if (!Game.inSession())
+                return;
+
             ServerPlayer hunter = context.getSender();
             ServerLevel compassLevel = hunter.getLevel();
             ServerPlayer target = Game.get().getPlayer(MAID);

@@ -182,7 +182,7 @@ public class ManhuntCommand {
 
 							Game.get().resetResumeTime();
 
-							for (ServerPlayer player : Game.get().getPlayerData().getList().getPlayers()) {
+							for (ServerPlayer player : Game.get().getPlayerData().getPlayers()) {
 								player.setInvulnerable(true);
 								player.setInvisible(true);
 							}

@@ -22,7 +22,7 @@ public class PlayerData {
         this.server = server;
         this.teamRunner = teamRunner;
         this.teamHunter = teamHunter;
-        this.runnersArray = new ServerPlayer[teamHunter.getPlayers().size()];
+        this.runnersArray = new ServerPlayer[teamRunner.getPlayers().size()];
         this.huntersArray = new ServerPlayer[teamHunter.getPlayers().size()];
         this.prevCoordsOverworld = new PlayerCoords(this);
         this.prevCoordsNether = new PlayerCoords(this);
@@ -30,26 +30,23 @@ public class PlayerData {
 
         int indexHunters = 0;
         int indexRunners = 0;
-        for (ServerPlayer player : playerList.getPlayers())
+        for (ServerPlayer player : playerList.getPlayers()) {
             if (isHunter(player))
                 huntersArray[indexHunters++] = player;
             else if (isRunner(player))
                 runnersArray[indexRunners++] = player;
+        }
 
         this.compassArray = new CompassArray(runnersArray, huntersArray, server);
-        for (int i : compassArray.getRunnersIDs()) {
-            ServerPlayer player = compassArray.getPlayer(i);
-            PlayerCoords playerCoords = getCoords(player.getLevel().dimension());
+        for (ServerPlayer runner : runnersArray) {
+            PlayerCoords playerCoords = getCoords(runner.getLevel().dimension());
 
-            playerCoords.update(player.getUUID(), player.getPosition(1));
-            System.out.println(player.getName().getString() + " UUID: " + player.getStringUUID() + "\n");
+            playerCoords.update(runner.getUUID(), runner.getPosition(1));
         }
-        for (int i : compassArray.getHuntersIDs()) {
-            ServerPlayer player = compassArray.getPlayer(i);
-            PlayerCoords playerCoords = getCoords(player.getLevel().dimension());
+        for (ServerPlayer hunter : huntersArray) {
+            PlayerCoords playerCoords = getCoords(hunter.getLevel().dimension());
 
-            playerCoords.update(player.getUUID(), player.getPosition(1));
-            System.out.println(player.getName().getString() + " UUID: " + player.getStringUUID() + "\n");
+            playerCoords.update(hunter.getUUID(), hunter.getPosition(1));
         }
 
         this.playerRespawner = new PlayerRespawner(timer);
@@ -90,7 +87,7 @@ public class PlayerData {
         return false;
     }
 
-    public boolean isManhuntPlayer(Player player) {
+    public boolean isManhuntPlayer(final Player player) {
         return isRunner(player) || isHunter(player);
     }
 
@@ -111,7 +108,7 @@ public class PlayerData {
     }
 
     public void updateAllCoords() {
-        for (ServerPlayer player : getList().getPlayers()) {
+        for (ServerPlayer player : getPlayers()) {
             ServerLevel level = player.getLevel();
             PlayerCoords coords = getCoords(level.dimension());
 
