@@ -1,9 +1,9 @@
 package net.bezeram.manhuntmod.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
-import net.bezeram.manhuntmod.game_manager.Game;
-import net.bezeram.manhuntmod.game_manager.ManhuntGameRules;
-import net.bezeram.manhuntmod.game_manager.TimerManager;
+import net.bezeram.manhuntmod.game.Game;
+import net.bezeram.manhuntmod.game.ManhuntGameRules;
+import net.bezeram.manhuntmod.game.GameTimer;
 import net.bezeram.manhuntmod.item.ModItems;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
@@ -15,7 +15,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.scores.Objective;
@@ -29,7 +28,7 @@ public class ManhuntCommand {
 		.then(Commands.argument("runnerTeam", TeamArgument.team())
 		.then(Commands.argument("hunterTeam", TeamArgument.team())
 				.executes((command) -> {
-					if (Game.isInSession()) {
+					if (Game.inSession()) {
 						command.getSource().getPlayerOrException().sendSystemMessage(Component
 								.literal("Game already in session").withStyle(ChatFormatting.RED));
 						return 1;
@@ -68,13 +67,14 @@ public class ManhuntCommand {
 						Game.init(teamRunner, teamHunter, server.getPlayerList(), server);
 
 						for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-							if (Game.get().isHunter(player)) {
+							if (Game.get().getPlayerData().isHunter(player)) {
 								ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
 								HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
 								if (!player.getInventory().add(compass))
 									player.drop(compass, false);
-								HunterCompassItem.addOrUpdateCompass(compass,
-											Game.getDimensionID(player.getLevel().dimension()));
+
+//								int dimensionID = Game.getDimensionID(player.gtLevel().dimension());
+//								HunterCompassItem.putGlobalCompass(player.getUUID(), compass, dimensionID);
 							}
 						}
 
@@ -93,7 +93,7 @@ public class ManhuntCommand {
 		.then(Commands.argument("runner", EntityArgument.entity())
 		.then(Commands.argument("hunter", EntityArgument.entity())
 				.executes((command) -> {
-					if (Game.isInSession()) {
+					if (Game.inSession()) {
 						command.getSource().getPlayerOrException().sendSystemMessage(Component
 								.literal("Game already in session").withStyle(ChatFormatting.RED));
 						return 1;
@@ -132,17 +132,15 @@ public class ManhuntCommand {
 
 					MinecraftServer server = command.getSource().getServer();
 					Game.init(teamRunner, teamHunter, server.getPlayerList(), server);
+					System.out.println("Successfully initiated Game class\n");
 
-					for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-						if (Game.get().isHunter(player)) {
-							ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
-							HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
-							if (!player.getInventory().add(compass))
-								player.drop(compass, false);
-							HunterCompassItem.addOrUpdateCompass(compass,
-									Game.getDimensionID(player.getLevel().dimension()));
-						}
+					for (ServerPlayer player : Game.get().getHuntersArray()) {
+						ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
+						HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
+						if (!player.getInventory().add(compass))
+							player.drop(compass, false);
 					}
+					System.out.println("Successfully given out compasses\n");
 
 					command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
 								.literal("Starting game in: " + (int)Game.get().getStartDelay().asSeconds() + " " +
@@ -153,7 +151,7 @@ public class ManhuntCommand {
 		})))
 		.then(Commands.literal("stop")
 				.executes((command) -> {
-					if (Game.isInSession()) {
+					if (Game.inSession()) {
 						Game.get().stopGame();
 
 						ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
@@ -173,10 +171,9 @@ public class ManhuntCommand {
 		}))
 		.then(Commands.literal("pause")
 				.executes((command) -> {
-					if (Game.isInSession()) {
+					if (Game.inSession()) {
 						if (Game.canPauseGame(command)) {
-							PlayerList allPlayers = command.getSource().getServer().getPlayerList();
-							Game.get().pauseGame(allPlayers);
+							Game.get().pauseGame();
 
 							ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
 							Objective timer = scoreboard.getObjective("TimeLeft");
@@ -185,7 +182,7 @@ public class ManhuntCommand {
 
 							Game.get().resetResumeTime();
 
-							for (ServerPlayer player : allPlayers.getPlayers()) {
+							for (ServerPlayer player : Game.get().getPlayerData().getPlayers()) {
 								player.setInvulnerable(true);
 								player.setInvisible(true);
 							}
@@ -209,8 +206,8 @@ public class ManhuntCommand {
 		}))
 		.then(Commands.literal("resume")
 				.executes((command) -> {
-					if (Game.isInSession()) {
-						if (Game.canResumeGame(command)) {
+					if (Game.inSession()) {
+						if (Game.canResumeGame()) {
 							Game.get().resumeGame();
 
 							ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
@@ -265,7 +262,7 @@ public class ManhuntCommand {
 		if (ManhuntGameRules.TIME_LIMIT) {
 			timer.setDisplayName(Component.literal("Time / Kills").withStyle(ChatFormatting.GOLD));
 
-			if (TimerManager.getGameTime().asMinutes() > 1) {
+			if (GameTimer.getGameTime().asMinutes() > 1) {
 				scoreboard.getOrCreatePlayerScore("Minutes", timer).setScore(score);
 				scoreboard.resetPlayerScore("Seconds", timer);
 			}
@@ -330,7 +327,7 @@ public class ManhuntCommand {
 	}
 
 	private static ValidateType checkExists() {
-		if (Game.isInSession())
+		if (Game.inSession())
 			return new ValidateType("Already in session", false, ValidateType.FAILURE_FORMAT);
 		return new ValidateType("Starting game in " + (int)Game.get().getStartDelay().asSeconds() + " seconds", true,
 				ValidateType.SUCCESS_FORMAT);

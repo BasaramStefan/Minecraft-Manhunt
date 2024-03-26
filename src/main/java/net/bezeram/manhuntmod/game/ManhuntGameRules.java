@@ -1,4 +1,4 @@
-package net.bezeram.manhuntmod.game_manager;
+package net.bezeram.manhuntmod.game;
 
 public class ManhuntGameRules {
 	public enum DeathPenaltyType {
@@ -9,18 +9,34 @@ public class ManhuntGameRules {
 		DISABLED, ALL, EXTENDED_ONLY, AMPLIFIED_ONLY, EXTENDED_OR_AMPLIFIED
 	}
 
+	public static boolean keepPartialInventory() {
+		return ManhuntGameRules.SAVE_INVENTORIES.keep;
+	}
+
+	public static boolean keepInventoryEnd() {
+		return ManhuntGameRules.SAVE_INVENTORIES.keepAllEnd;
+	}
+
+	public static boolean isTimeLimit() {
+		return ManhuntGameRules.TIME_LIMIT;
+	}
+
+	public static DeathPenaltyType getDeathPenalty() { return ManhuntGameRules.DEATH_PENALTY; }
+
+	public static boolean canBreakSpawners() { return ManhuntGameRules.CAN_BREAK_SPAWNERS; }
+
 	public enum SaveInventoryType {
 		FALSE(false, false),
 		TRUE(true, false),
 		TRUE_KEEP_END(true, true);
 
-		SaveInventoryType(boolean canSave, boolean keepAllEnd) {
-			this.canSave = canSave;
+		SaveInventoryType(final boolean canSave, final boolean keepAllEnd) {
+			this.keep = canSave;
 			this.keepAllEnd = keepAllEnd;
 		}
 
-		public final boolean canSave;
-		public final boolean keepAllEnd; // All items are kept when player dies in specified dimension
+		public final boolean keep;
+		public final boolean keepAllEnd; // All items are kept when player dies in the end dimension
 	}
 
 	public static void resetDefaults() {

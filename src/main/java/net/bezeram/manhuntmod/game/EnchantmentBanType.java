@@ -1,4 +1,4 @@
-package net.bezeram.manhuntmod.game_manager;
+package net.bezeram.manhuntmod.game;
 
 import java.util.Hashtable;
 

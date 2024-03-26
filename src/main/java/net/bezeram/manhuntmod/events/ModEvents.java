@@ -2,21 +2,20 @@ package net.bezeram.manhuntmod.events;
 
 import net.bezeram.manhuntmod.ManhuntMod;
 import net.bezeram.manhuntmod.commands.*;
-import net.bezeram.manhuntmod.game_manager.Game;
-import net.bezeram.manhuntmod.game_manager.ManhuntGameRules;
-import net.bezeram.manhuntmod.game_manager.Time;
+import net.bezeram.manhuntmod.game.Game;
+import net.bezeram.manhuntmod.game.ManhuntGameRules;
+import net.bezeram.manhuntmod.game.Time;
+import net.bezeram.manhuntmod.game.players.PlayerRespawner;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.ServerScoreboard;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -40,7 +39,6 @@ public class ModEvents {
 
 	@SubscribeEvent
 	public static void onCommandsRegister(RegisterCommandsEvent event) {
-		new ManhuntSetSpawnCountCommand(event.getDispatcher());
 		new ManhuntCommand(event.getDispatcher());
 		new ManhuntTimerCommand(event.getDispatcher());
 		new ManhuntRulesCommand(event.getDispatcher());
@@ -98,7 +96,7 @@ public class ModEvents {
 		@SubscribeEvent
 		public static void disableExplosives(PlayerInteractEvent.RightClickBlock event) {
 			if (event.getSide().isClient()
-					|| !Game.isInSession()
+					|| !Game.inSession()
 					|| event.getEntity().isCreative()
 					|| !ManhuntGameRules.DISABLE_RESPAWN_BLOCK_EXPLOSION)
 				return;
@@ -129,7 +127,7 @@ public class ModEvents {
 
 		@SubscribeEvent
 		public static void disableBreakingBlocks(BlockEvent.BreakEvent event) {
-			if (event.getLevel().isClientSide() || !Game.isInSession() || event.getPlayer().isCreative())
+			if (event.getLevel().isClientSide() || !Game.inSession() || event.getPlayer().isCreative())
 				return;
 
 			if (Game.isHunterAtGameState(event.getPlayer(), Game.GameState.START) ||
@@ -142,7 +140,7 @@ public class ModEvents {
 				return;
 			}
 
-			if (!ManhuntGameRules.CAN_BREAK_SPAWNERS && isSpawnerBlock(event)) {
+			if (!ManhuntGameRules.canBreakSpawners() && isSpawnerBlock(event)) {
 				event.setCanceled(true);
 				event.getPlayer().displayClientMessage(
 						Component.literal("Spawners cannot be broken!").withStyle(ChatFormatting.RED), true);
@@ -155,57 +153,57 @@ public class ModEvents {
 
 		@SubscribeEvent
 		public static void onServerTick(TickEvent.ServerTickEvent event) {
-			if (Game.isInSession()) {
+			if (!Game.inSession())
+				return;
 
-				Game.get().update(event);
-				if (Game.getGameState() == Game.GameState.ERASE) {
-					Game.get().stopGame();
-					return;
-				}
-
-				// Update scoreboard
-				ServerScoreboard scoreboard = event.getServer().getScoreboard();
-				Objective objective = scoreboard.getObjective("TimeLeft");
-
-				if (objective != null) {
-					int secondsLeft = (int)(Game.get().getGameTime().asSeconds() - Game.get().getElapsedTime().asSeconds());
-					int minutesLeft = secondsLeft / 60;
-
-					String scoreLabel   = (minutesLeft >= 1) ? "Minutes" : "Seconds";
-					int score           = (minutesLeft >= 1) ? minutesLeft : secondsLeft;
-					if (minutesLeft < 1) {
-						scoreboard.resetPlayerScore("Minutes", objective);
-					}
-
-					scoreboard.getOrCreatePlayerScore(scoreLabel, objective).setScore(score);
-
-					// Sudden death
-					if (Game.get().isSuddenDeath() && !SuddenDeathWarning.hasTriggered) {
-						SuddenDeathWarning.broadcastMessage(event.getServer().getPlayerList(), Game.get().getTimeLeft());
-						PlayerTeam timeHighlight = scoreboard.addPlayerTeam("SuddenDeath");
-						scoreboard.addPlayerToTeam("Minutes", timeHighlight);
-						scoreboard.addPlayerToTeam("Seconds", timeHighlight);
-					}
-
-					if (SuddenDeathWarning.hasTriggered) {
-						// Cycle highlight
-						SuddenDeathWarning.updateScoreboardTime();
-						PlayerTeam playerTeam = scoreboard.getPlayerTeam("SuddenDeath");
-
-						assert playerTeam != null;
-						playerTeam.setColor(SuddenDeathWarning.scoreboardTimeColor);
-					}
-				}
-				else
-					System.out.println("ERROR: Game display scoreboard has null objective");
+			Game.get().update(event);
+			if (Game.getGameState() == Game.GameState.ERASE) {
+				Game.get().stopGame();
+				return;
 			}
+
+			// Update scoreboard
+			ServerScoreboard scoreboard = event.getServer().getScoreboard();
+			Objective objective = scoreboard.getObjective("TimeLeft");
+
+			if (objective != null) {
+				int secondsLeft = (int)(Game.get().getGameTime().asSeconds() - Game.get().getElapsedTime().asSeconds());
+				int minutesLeft = secondsLeft / 60;
+
+				String scoreLabel   = (minutesLeft >= 1) ? "Minutes" : "Seconds";
+				int score           = (minutesLeft >= 1) ? minutesLeft : secondsLeft;
+				if (minutesLeft < 1) {
+					scoreboard.resetPlayerScore("Minutes", objective);
+				}
+
+				scoreboard.getOrCreatePlayerScore(scoreLabel, objective).setScore(score);
+
+				// Sudden death
+				if (Game.get().isSuddenDeath() && !SuddenDeathWarning.hasTriggered) {
+					SuddenDeathWarning.broadcastMessage(event.getServer().getPlayerList(), Game.get().getTimeLeft());
+					PlayerTeam timeHighlight = scoreboard.addPlayerTeam("SuddenDeath");
+					scoreboard.addPlayerToTeam("Minutes", timeHighlight);
+					scoreboard.addPlayerToTeam("Seconds", timeHighlight);
+				}
+
+				if (SuddenDeathWarning.hasTriggered) {
+					// Cycle highlight
+					SuddenDeathWarning.updateScoreboardTime();
+					PlayerTeam playerTeam = scoreboard.getPlayerTeam("SuddenDeath");
+
+					assert playerTeam != null;
+					playerTeam.setColor(SuddenDeathWarning.scoreboardTimeColor);
+				}
+			}
+			else
+				System.out.println("ERROR: Game display scoreboard has null objective");
 		}
 
 		@SubscribeEvent
 		// Save player's inventory in game class
 		// Destroy designated items in order to not drop them
-		public static void onEntityDeath(LivingDeathEvent event) {
-			if (event.getEntity().getLevel().isClientSide() || !Game.isInSession())
+		public static void onEntityDeath(final LivingDeathEvent event) {
+			if (event.getEntity().getLevel().isClientSide() || !Game.inSession())
 				return;
 
 			if (event.getEntity() instanceof EnderDragon) {
@@ -213,74 +211,20 @@ public class ModEvents {
 				return;
 			}
 
-			if (event.getEntity() instanceof Player player) {
-				if (player.isCreative())
-					return;
-
-				if (ManhuntGameRules.SAVE_INVENTORIES.canSave) {
-					// Directly save inventory
-					if (ManhuntGameRules.SAVE_INVENTORIES.keepAllEnd && player.getLevel().dimension() == Level.END) {
-						Inventory savedInventory = new Inventory(player);
-						savedInventory.replaceWith(player.getInventory());
-						player.getInventory().clearContent();
-						Game.get().saveInventory(player.getDisplayName().getString(), savedInventory);
-						return;
-					}
-
-					// Save the player's inventory, which is loaded on the first tick after respawn
-					Inventory savedInventory = new Inventory(player);
-					for (int slot = 0; slot < SLOT_COUNT; slot++) {
-						ItemStack itemStack = player.getInventory().getItem(slot);
-
-						if (DeathSafeItems.isDeathSafe(itemStack.getItem())) {
-							savedInventory.setItem(slot, itemStack);
-							player.getInventory().setItem(slot, ItemStack.EMPTY);
-						}
-
-						if (DeathSafeItems.isException(itemStack.getItem())) {
-							Item converted = DeathSafeItems.convertExceptionItem(itemStack.getItem());
-							savedInventory.setItem(slot, new ItemStack(converted));
-							player.getInventory().setItem(slot, ItemStack.EMPTY);
-						}
-					}
-
-					Game.get().saveInventory(player.getDisplayName().getString(), savedInventory);
-				}
-
-				// Deduct from the game time if the player is a runner
-				if (ManhuntGameRules.TIME_LIMIT && Game.get().isRunner(player)) {
-					Game.get().applyDeathPenalty(player.getLevel());
-				}
-			}
+			if (event.getEntity() instanceof ServerPlayer serverPlayer && !serverPlayer.isCreative())
+				PlayerRespawner.playerDiedStatic(serverPlayer);
 		}
 
         @SubscribeEvent
-        public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
-			if (event.getEntity().getLevel().isClientSide() || !Game.isInSession() || event.isEndConquered())
+        public static void onPlayerRespawn(final PlayerEvent.PlayerRespawnEvent event) {
+			if (event.getEntity().getLevel().isClientSide() || !Game.inSession() || event.isEndConquered())
 				return;
 
-			Player player = event.getEntity();
-			if (player.isCreative())
+			ServerPlayer serverPlayer = (ServerPlayer) event.getEntity();
+			if (serverPlayer.isCreative())
 				return;
 
-	        if (ManhuntGameRules.SAVE_INVENTORIES.canSave) {
-		        String playerName = player.getDisplayName().getString();
-		        if (!Game.get().isInventorySaved(playerName)) {
-			        player.displayClientMessage(Component
-					        .literal("ERROR: Inventory has not been saved yet for player: " + playerName)
-					        .withStyle(ChatFormatting.RED), false);
-			        return;
-		        }
-
-		        player.getInventory().replaceWith(Game.get().getInventory(playerName));
-	        }
+			PlayerRespawner.playerRespawnedStatic(serverPlayer);
 		}
-
-		@SubscribeEvent
-		public static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
-			HunterCompassItem.onPlayerChangeDimension(event.getEntity().getName().getString(), event.getEntity().getLevel());
-		}
-
-		public static final int SLOT_COUNT = 41;
     }
 }

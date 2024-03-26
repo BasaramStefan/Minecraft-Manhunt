@@ -1,13 +1,14 @@
 package net.bezeram.manhuntmod;
 
-import net.bezeram.manhuntmod.game_manager.Game;
+import net.bezeram.manhuntmod.game.ClientData;
 import net.bezeram.manhuntmod.item.ModItems;
-import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.bezeram.manhuntmod.networking.ModMessages;
+import net.bezeram.manhuntmod.networking.packets.HunterCompassGetPosC2SPacket;
 import net.minecraft.client.renderer.item.CompassItemPropertyFunction;
 import net.minecraft.client.renderer.item.ItemProperties;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.CreativeModeTabEvent;
@@ -16,10 +17,10 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLanguageProvider;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegisterEvent;
+
+import static net.bezeram.manhuntmod.item.custom.HunterCompassItem.TAG_TARGET_PLAYER;
+import static net.bezeram.manhuntmod.item.custom.HunterCompassItem.TAG_TARGET_TRACKING;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(ManhuntMod.MOD_ID)
@@ -32,7 +33,7 @@ public class ManhuntMod {
 
         ModItems.register(modEventBus);
 
-        // Register the commonSetup method for modloading
+        // Register the commonSetup method for mod loading
         modEventBus.addListener(this::commonSetup);
 
 
@@ -55,13 +56,20 @@ public class ManhuntMod {
     public static class ClientModEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            event.enqueueWork(() -> {
-                ItemProperties.register(ModItems.HUNTER_COMPASS.get(),
-                        new ResourceLocation(ManhuntMod.MOD_ID, "angle"),
-                        new CompassItemPropertyFunction((clientLevel, itemStack, entity) ->
-                            null
-                ));
-            });
+            event.enqueueWork(() -> ItemProperties.register(ModItems.HUNTER_COMPASS.get(),
+                    new ResourceLocation(ManhuntMod.MOD_ID, "angle"),
+                    new CompassItemPropertyFunction((clientLevel, itemStack, entity) -> {
+                        int MAID = itemStack.getOrCreateTag().getInt(TAG_TARGET_PLAYER);
+                        boolean isTracking = itemStack.getOrCreateTag().getBoolean(TAG_TARGET_TRACKING);
+                        ModMessages.sendToServer(new HunterCompassGetPosC2SPacket(MAID, isTracking));
+
+                        return GlobalPos.of(clientLevel.dimension(), new BlockPos(
+                                ClientData.get().getCompassData().targetX,
+                                0,
+                                ClientData.get().getCompassData().targetZ)
+                        );
+                    }
+            )));
         }
     }
 }

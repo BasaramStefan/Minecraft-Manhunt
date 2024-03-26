@@ -1,8 +1,13 @@
 package net.bezeram.manhuntmod.networking;
 
 import com.mojang.serialization.Decoder;
+import io.netty.channel.ChannelException;
+import io.netty.channel.ChannelFactory;
 import net.bezeram.manhuntmod.ManhuntMod;
+import net.bezeram.manhuntmod.networking.packets.HunterCompassGetPosC2SPacket;
+import net.bezeram.manhuntmod.networking.packets.HunterCompassGetPosS2CPacket;
 import net.bezeram.manhuntmod.networking.packets.HunterCompassUseC2SPacket;
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
@@ -30,6 +35,18 @@ public class ModMessages {
 				.decoder(HunterCompassUseC2SPacket::new)
 				.encoder(HunterCompassUseC2SPacket::toBytes)
 				.consumerMainThread(HunterCompassUseC2SPacket::handle)
+				.add();
+
+		net.messageBuilder(HunterCompassGetPosC2SPacket.class, ID(), NetworkDirection.PLAY_TO_SERVER)
+				.decoder(HunterCompassGetPosC2SPacket::new)
+				.encoder(HunterCompassGetPosC2SPacket::toBytes)
+				.consumerMainThread(HunterCompassGetPosC2SPacket::handle)
+				.add();
+
+		net.messageBuilder(HunterCompassGetPosS2CPacket.class, ID(), NetworkDirection.PLAY_TO_CLIENT)
+				.decoder(HunterCompassGetPosS2CPacket::new)
+				.encoder(HunterCompassGetPosS2CPacket::toBytes)
+				.consumerMainThread(HunterCompassGetPosS2CPacket::handle)
 				.add();
 	}
 

@@ -2,8 +2,8 @@ package net.bezeram.manhuntmod.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
-import net.bezeram.manhuntmod.game_manager.ManhuntGameRules;
-import net.bezeram.manhuntmod.game_manager.TimerManager;
+import net.bezeram.manhuntmod.game.ManhuntGameRules;
+import net.bezeram.manhuntmod.game.GameTimer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -17,7 +17,7 @@ public class ManhuntTimerCommand {
 				.then(Commands.argument("timeMinutes", DoubleArgumentType.doubleArg(0))
 						.executes((command) -> {
 							double minutes = DoubleArgumentType.getDouble(command, "timeMinutes");
-							TimerManager.setGameTime(minutes);
+							GameTimer.setGameTime(minutes);
 
 							String playerFeedback = "Game time has been set to " + minutes + " minutes";
 							ServerPlayer player = command.getSource().getPlayerOrException();
@@ -35,7 +35,7 @@ public class ManhuntTimerCommand {
 				.then(Commands.argument("timeSeconds", DoubleArgumentType.doubleArg(0))
 						.executes((command) -> {
 							double seconds = DoubleArgumentType.getDouble(command, "timeSeconds");
-							TimerManager.setHeadstart(seconds);
+							GameTimer.setHeadstart(seconds);
 
 							String playerFeedback = "Headstart time has been set to " + seconds + " seconds";
 							ServerPlayer player = command.getSource().getPlayerOrException();
@@ -52,7 +52,7 @@ public class ManhuntTimerCommand {
 				.then(Commands.argument("timeMinutes", DoubleArgumentType.doubleArg(0))
 						.executes((command) -> {
 							double minutes = DoubleArgumentType.getDouble(command, "timeMinutes");
-							TimerManager.setDeathPenalty(minutes);
+							GameTimer.setDeathPenalty(minutes);
 
 							String playerFeedback = "Penalty for death has been set to " + minutes + " minutes";
 							ServerPlayer player = command.getSource().getPlayerOrException();
@@ -70,7 +70,7 @@ public class ManhuntTimerCommand {
 				.then(Commands.argument("timeMinutes", DoubleArgumentType.doubleArg(0))
 						.executes((command) -> {
 							double minutes = DoubleArgumentType.getDouble(command, "timeMinutes");
-							TimerManager.setPauseTime(minutes);
+							GameTimer.setPauseTime(minutes);
 
 							command.getSource().getPlayerOrException().sendSystemMessage(Component.literal(
 									"Pause time has been set to " + minutes + " minutes"
