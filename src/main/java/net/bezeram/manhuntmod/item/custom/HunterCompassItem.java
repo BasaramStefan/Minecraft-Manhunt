@@ -24,6 +24,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 public class HunterCompassItem extends Item {
@@ -107,7 +108,7 @@ public class HunterCompassItem extends Item {
 	 * @param tag compass tags
 	 * @return coords with a dimension
 	 */
-	public static GlobalPos getPlayerPosition(final ServerLevel compassLevel, final CompoundTag tag) {
+	public static @Nullable GlobalPos getPlayerPosition(final ServerLevel compassLevel, final CompoundTag tag) {
 		if (!Game.inSession()) {
 			return null;
 		}
@@ -115,8 +116,10 @@ public class HunterCompassItem extends Item {
 			tag.putInt(TAG_TARGET_PLAYER, 0);
 		int MAID = tag.getInt(TAG_TARGET_PLAYER);
 		ServerPlayer target = Game.get().getPlayer(MAID);
-
-		return GlobalPos.of(compassLevel.dimension(), getPlayerPosition(isCompassTracking(tag), compassLevel, target));
+		BlockPos blockPos = getPlayerPosition(isCompassTracking(tag), compassLevel, target);
+		if (blockPos == null)
+			return null;
+		return GlobalPos.of(compassLevel.dimension(), blockPos);
 	}
 
 	/**
@@ -136,6 +139,8 @@ public class HunterCompassItem extends Item {
 
 		// Get the latest known coords in the compass's dimension of the target player
 		Vec3 pos = Game.get().getPlayerData().getCoords(compassLevel.dimension()).get(target.getUUID());
+		if (pos == null)
+			return null;
 		return new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
 	}
 

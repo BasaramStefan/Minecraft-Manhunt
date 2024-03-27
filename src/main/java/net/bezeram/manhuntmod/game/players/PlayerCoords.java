@@ -14,10 +14,8 @@ public class PlayerCoords {
     }
 
     public void update(final UUID uuid) {
-        if (!Game.inSession()) {
-            System.out.println("PlayerCoords::update() - Game not in session\n");
+        if (!Game.inSession())
             return;
-        }
 
         ServerPlayer player = Game.get().getPlayer(uuid);
         PlayerCoords coords = playerData.getCoords(player.getLevel().dimension());
@@ -27,10 +25,8 @@ public class PlayerCoords {
     }
 
     public Vec3 get(final UUID uuid) {
-        if (!coords.containsKey(uuid)) {
-            coords.put(uuid, new Vec3(0, 0 ,0));
-            update(uuid);
-        }
+        if (!coords.containsKey(uuid))
+            return null;
 
         return coords.get(uuid);
     }
@@ -39,5 +35,6 @@ public class PlayerCoords {
 
     // Links the Manhunt ID (MAID) of the player to coords
     private final Hashtable<UUID, Vec3> coords = new Hashtable<>();
+    // Pointer to its holder
     private final PlayerData playerData;
 }

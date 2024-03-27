@@ -50,6 +50,9 @@ public class PlayerData {
         }
 
         this.playerRespawner = new PlayerRespawner(timer);
+        this.playersArray = new ServerPlayer[runnersArray.length + huntersArray.length];
+        System.arraycopy(runnersArray, 0, playersArray, 0, runnersArray.length);
+        System.arraycopy(huntersArray, 0, playersArray, runnersArray.length, huntersArray.length);
     }
 
     public void updateCoords() {
@@ -160,13 +163,7 @@ public class PlayerData {
     }
 
     public final PlayerList getList() { return list; }
-    public final ServerPlayer[] getPlayers() {
-        ServerPlayer[] players = new ServerPlayer[runnersArray.length + huntersArray.length];
-        System.arraycopy(runnersArray, 0, players, 0, runnersArray.length);
-        System.arraycopy(huntersArray, 0, players, runnersArray.length, huntersArray.length);
-
-        return players;
-    }
+    public final ServerPlayer[] getPlayers() { return playersArray; }
 
     private final PlayerRespawner playerRespawner;
 
@@ -178,6 +175,7 @@ public class PlayerData {
 
     private final ServerPlayer[] runnersArray;
     private final ServerPlayer[] huntersArray;
+    private final ServerPlayer[] playersArray;
 
     private final PlayerCoords prevCoordsOverworld;
     private final PlayerCoords prevCoordsNether;

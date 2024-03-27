@@ -305,6 +305,8 @@ public class Game {
 	private void teleportIfMoving(final ServerPlayer serverPlayer) {
 		Vec3 prevPos = playerData.getCoords(serverPlayer);
 		Vec3 currentPos = serverPlayer.getPosition(1);
+		if (prevPos == null)
+			return;
 
 		if (currentPos.x != prevPos.x ||
 			currentPos.y != prevPos.y ||
