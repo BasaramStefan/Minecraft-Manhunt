@@ -59,6 +59,10 @@ public class Game {
 		return INSTANCE;
 	}
 
+	public static UUID cloneUUID(final UUID uuid) {
+		return new UUID(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+	}
+
 	public static GameState getGameState() {
 		return currentState;
 	}
@@ -340,9 +344,6 @@ public class Game {
 	private boolean runnerWins = true;
 
 	public ServerPlayer getPlayer(UUID uuid) {
-		if (!Game.inSession())
-			return null;
-
 		return server.getPlayerList().getPlayer(uuid);
 	}
 	public ServerPlayer getPlayer(int MAID) { return playerData.getPlayer(MAID); }

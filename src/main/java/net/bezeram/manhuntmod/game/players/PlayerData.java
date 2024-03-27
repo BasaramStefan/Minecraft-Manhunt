@@ -13,6 +13,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
 
+import java.util.Arrays;
 import java.util.UUID;
 
 public class PlayerData {
@@ -22,8 +23,8 @@ public class PlayerData {
         this.server = server;
         this.teamRunner = teamRunner;
         this.teamHunter = teamHunter;
-        this.runnersArray = new ServerPlayer[teamRunner.getPlayers().size()];
-        this.huntersArray = new ServerPlayer[teamHunter.getPlayers().size()];
+        this.runnersArray = new UUID[teamRunner.getPlayers().size()];
+        this.huntersArray = new UUID[teamHunter.getPlayers().size()];
         this.prevCoordsOverworld = new PlayerCoords(this);
         this.prevCoordsNether = new PlayerCoords(this);
         this.prevCoordsEnd = new PlayerCoords(this);
@@ -32,25 +33,27 @@ public class PlayerData {
         int indexRunners = 0;
         for (ServerPlayer player : playerList.getPlayers()) {
             if (isHunter(player))
-                huntersArray[indexHunters++] = player;
+                huntersArray[indexHunters++] = Game.cloneUUID(player.getUUID());
             else if (isRunner(player))
-                runnersArray[indexRunners++] = player;
+                runnersArray[indexRunners++] = Game.cloneUUID(player.getUUID());
         }
 
         this.compassArray = new CompassArray(runnersArray, huntersArray, server);
-        for (ServerPlayer runner : runnersArray) {
+        for (UUID runnerUUID : runnersArray) {
+            ServerPlayer runner = server.getPlayerList().getPlayer(runnerUUID);
             PlayerCoords playerCoords = getCoords(runner.getLevel().dimension());
 
             playerCoords.update(runner.getUUID(), runner.getPosition(1));
         }
-        for (ServerPlayer hunter : huntersArray) {
+        for (UUID hunterUUID : huntersArray) {
+            ServerPlayer hunter = server.getPlayerList().getPlayer(hunterUUID);
             PlayerCoords playerCoords = getCoords(hunter.getLevel().dimension());
 
             playerCoords.update(hunter.getUUID(), hunter.getPosition(1));
         }
 
         this.playerRespawner = new PlayerRespawner(timer);
-        this.playersArray = new ServerPlayer[runnersArray.length + huntersArray.length];
+        this.playersArray = new UUID[runnersArray.length + huntersArray.length];
         System.arraycopy(runnersArray, 0, playersArray, 0, runnersArray.length);
         System.arraycopy(huntersArray, 0, playersArray, runnersArray.length, huntersArray.length);
     }
@@ -103,11 +106,21 @@ public class PlayerData {
     }
 
     public ServerPlayer[] getRunners() {
-        return runnersArray;
+        ServerPlayer[] runners = new ServerPlayer[runnersArray.length];
+        int i = 0;
+        for (UUID uuid : runnersArray)
+            runners[i++] = Game.get().getPlayer(uuid);
+
+        return runners;
     }
 
     public ServerPlayer[] getHunters() {
-        return huntersArray;
+        ServerPlayer[] hunters = new ServerPlayer[huntersArray.length];
+        int i = 0;
+        for (UUID uuid : huntersArray)
+            hunters[i++] = Game.get().getPlayer(uuid);
+
+        return hunters;
     }
 
     public void updateAllCoords() {
@@ -163,7 +176,13 @@ public class PlayerData {
     }
 
     public final PlayerList getList() { return list; }
-    public final ServerPlayer[] getPlayers() { return playersArray; }
+    public final ServerPlayer[] getPlayers() {
+        ServerPlayer[] players = new ServerPlayer[playersArray.length];
+        int i = 0;
+        for (UUID uuid : playersArray)
+            players[i++] = Game.get().getPlayer(uuid);
+        return players;
+    }
 
     private final PlayerRespawner playerRespawner;
 
@@ -173,9 +192,9 @@ public class PlayerData {
     private final PlayerTeam teamRunner;
     private final PlayerTeam teamHunter;
 
-    private final ServerPlayer[] runnersArray;
-    private final ServerPlayer[] huntersArray;
-    private final ServerPlayer[] playersArray;
+    private final UUID[] runnersArray;
+    private final UUID[] huntersArray;
+    private final UUID[] playersArray;
 
     private final PlayerCoords prevCoordsOverworld;
     private final PlayerCoords prevCoordsNether;

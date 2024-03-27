@@ -177,7 +177,6 @@ public class ManhuntCommand {
 
 							ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
 							Objective timer = scoreboard.getObjective("TimeLeft");
-							assert timer != null;
 							scoreboard.getOrCreatePlayerScore("PAUSED", timer).setScore(0);
 
 							Game.get().resetResumeTime();
@@ -231,19 +230,15 @@ public class ManhuntCommand {
 
 	private static void setupScoreboard(ServerScoreboard scoreboard, PlayerTeam teamRunner, PlayerTeam teamHunter) {
 		Objective timer = scoreboard.getObjective("TimeLeft");
-		scoreboard.resetPlayerScore("PAUSED", timer);
-		scoreboard.resetPlayerScore("STOPPED", timer);
-		scoreboard.resetPlayerScore("RUNNER WINS", timer);
-		scoreboard.resetPlayerScore("RUNNERS WIN", timer);
-		scoreboard.resetPlayerScore("HUNTER WINS", timer);
-		scoreboard.resetPlayerScore("HUNTERS WIN", timer);
 
 		if (timer == null) {
 			Component sidebar = Component.translatable(ServerScoreboard.getDisplaySlotName(1));
 			ObjectiveCriteria.RenderType renderType = ObjectiveCriteria.RenderType.INTEGER;
-			ObjectiveCriteria playerKillCount = ObjectiveCriteria.KILL_COUNT_PLAYERS;
 
-			timer = scoreboard.addObjective("TimeLeft", playerKillCount, sidebar, renderType);
+			timer = scoreboard.addObjective("TimeLeft", ObjectiveCriteria.DUMMY, sidebar, renderType);
+		}
+		else {
+			scoreboard.removeObjective(timer);
 		}
 
 
@@ -259,8 +254,8 @@ public class ManhuntCommand {
 			score++;
 		}
 
-		if (ManhuntGameRules.TIME_LIMIT) {
-			timer.setDisplayName(Component.literal("Time / Kills").withStyle(ChatFormatting.GOLD));
+		if (ManhuntGameRules.isTimeLimit()) {
+			timer.setDisplayName(Component.literal("Manhunt").withStyle(ChatFormatting.GOLD));
 
 			if (GameTimer.getGameTime().asMinutes() > 1) {
 				scoreboard.getOrCreatePlayerScore("Minutes", timer).setScore(score);
@@ -282,7 +277,6 @@ public class ManhuntCommand {
 	}
 
 	static class ValidateType {
-		ValidateType() {}
 		ValidateType(String feedback, boolean success, ChatFormatting format) {
 			this.feedback = feedback;
 			this.success = success;

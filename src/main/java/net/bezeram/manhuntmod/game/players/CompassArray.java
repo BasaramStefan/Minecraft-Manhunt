@@ -7,7 +7,7 @@ import net.minecraft.server.level.ServerPlayer;
 import java.util.UUID;
 
 public class CompassArray {
-    public CompassArray(ServerPlayer[] runners, ServerPlayer[] hunters, final MinecraftServer server) {
+    public CompassArray(UUID[] runners, UUID[] hunters, final MinecraftServer server) {
         int runnersCount = runners.length;
         int huntersCount = hunters.length;
         this.runnersCount = runnersCount;
@@ -17,13 +17,13 @@ public class CompassArray {
         this.server = server;
 
         int indexPlayers = 0;
-        for (ServerPlayer runner : runners) {
-            playerArray[indexPlayers] = runner.getUUID();
+        for (UUID runnerUUID : runners) {
+            playerArray[indexPlayers] = runnerUUID;
             indexPlayers++;
         }
 
-        for (ServerPlayer hunter : hunters) {
-            playerArray[indexPlayers] = hunter.getUUID();
+        for (UUID hunterUUID : hunters) {
+            playerArray[indexPlayers] = hunterUUID;
             indexPlayers++;
         }
     }
