@@ -41,7 +41,14 @@ public class HunterCompassGetPosC2SPacket {
             ServerPlayer target = Game.get().getPlayer(MAID);
 
             BlockPos playerPos = getPlayerPosition(isTracking, compassLevel, target);
-            ModMessages.sendToPlayer(new HunterCompassGetPosS2CPacket(playerPos.getX(), playerPos.getZ()), hunter);
+            int posX = Integer.MAX_VALUE;
+            int posZ = Integer.MAX_VALUE;
+            if (playerPos != null) {
+                posX = playerPos.getX();
+                posZ = playerPos.getZ();
+            }
+
+            ModMessages.sendToPlayer(new HunterCompassGetPosS2CPacket(posX, posZ), hunter);
         });
         context.setPacketHandled(true);
     }
