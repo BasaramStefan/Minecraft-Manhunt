@@ -22,10 +22,14 @@ public class ClientData {
         timer.update();
     }
 
+    public void reset() {
+        compassData.targetX = 0;
+        compassData.targetZ = 0;
+    }
+
     public static class Compass {
         public int targetX = 0;
         public int targetZ = 0;
-        public boolean canRequest = false;
     };
 
     private final Compass compassData = new Compass();

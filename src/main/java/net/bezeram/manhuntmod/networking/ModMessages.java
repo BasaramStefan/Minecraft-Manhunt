@@ -7,6 +7,7 @@ import net.bezeram.manhuntmod.ManhuntMod;
 import net.bezeram.manhuntmod.networking.packets.HunterCompassGetPosC2SPacket;
 import net.bezeram.manhuntmod.networking.packets.HunterCompassGetPosS2CPacket;
 import net.bezeram.manhuntmod.networking.packets.HunterCompassUseC2SPacket;
+import net.bezeram.manhuntmod.networking.packets.ResetClientDataS2CPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -47,6 +48,12 @@ public class ModMessages {
 				.decoder(HunterCompassGetPosS2CPacket::new)
 				.encoder(HunterCompassGetPosS2CPacket::toBytes)
 				.consumerMainThread(HunterCompassGetPosS2CPacket::handle)
+				.add();
+
+		net.messageBuilder(ResetClientDataS2CPacket.class, ID(), NetworkDirection.PLAY_TO_CLIENT)
+				.decoder(ResetClientDataS2CPacket::new)
+				.encoder(ResetClientDataS2CPacket::toBytes)
+				.consumerMainThread(ResetClientDataS2CPacket::handle)
 				.add();
 	}
 

@@ -4,6 +4,8 @@ import com.mojang.brigadier.context.CommandContext;
 import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game.players.PlayerData;
+import net.bezeram.manhuntmod.networking.ModMessages;
+import net.bezeram.manhuntmod.networking.packets.ResetClientDataS2CPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
@@ -23,7 +25,7 @@ import java.util.*;
 import java.util.List;
 
 public class Game {
-	private static Game GAME_INSTANCE = null;
+	private static Game INSTANCE = null;
 
 	private Game(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList, MinecraftServer server) {
 		this.server = server;
@@ -36,16 +38,25 @@ public class Game {
 
 	public static void init(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList,
 	                        MinecraftServer server) {
-		GAME_INSTANCE = new Game(teamRunner, teamHunter, playerList, server);
+		INSTANCE = new Game(teamRunner, teamHunter, playerList, server);
 		currentState = GameState.START;
+
+		INSTANCE.resetClientsData();
 	}
 
 	public static boolean inSession() {
 		return currentState != GameState.NULL;
 	}
 
+	private void resetClientsData() {
+		for (ServerPlayer player : playerData.getPlayers())
+			ModMessages.sendToPlayer(new ResetClientDataS2CPacket(), player);
+	}
+
 	public static Game get() {
-		return GAME_INSTANCE;
+		if (INSTANCE == null)
+			return null;
+		return INSTANCE;
 	}
 
 	public static GameState getGameState() {
@@ -70,7 +81,7 @@ public class Game {
 		}
 
 		currentState = GameState.NULL;
-		GAME_INSTANCE = null;
+		INSTANCE = null;
 	}
 
 	public MinecraftServer getServer() { return server; }

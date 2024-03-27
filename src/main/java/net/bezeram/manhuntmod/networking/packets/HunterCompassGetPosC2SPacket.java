@@ -43,6 +43,7 @@ public class HunterCompassGetPosC2SPacket {
             BlockPos playerPos = getPlayerPosition(isTracking, compassLevel, target);
             ModMessages.sendToPlayer(new HunterCompassGetPosS2CPacket(playerPos.getX(), playerPos.getZ()), hunter);
         });
+        context.setPacketHandled(true);
     }
 
     private final int MAID;

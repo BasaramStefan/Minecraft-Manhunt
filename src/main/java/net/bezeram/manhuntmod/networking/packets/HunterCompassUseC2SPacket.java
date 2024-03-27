@@ -96,6 +96,7 @@ public class HunterCompassUseC2SPacket {
 				itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
 			}
 		});
+		context.setPacketHandled(true);
 	}
 
 	private final boolean shiftPressed;
