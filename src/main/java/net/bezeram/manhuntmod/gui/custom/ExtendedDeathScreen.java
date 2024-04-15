@@ -29,15 +29,11 @@ public class ExtendedDeathScreen extends DeathScreen {
         this.delayTicker = 0;
         Component component = Component.translatable("deathScreen.manhuntmod.portalRespawn");
 
-        // TODO: add alternative respawn widget IF the player has entered the nether at least once
-        //  send a packet to server to see if the button should be added
         BlockPos portalCoords = ClientData.get().getPortalRespawnCoords();
         isAltOpen = portalCoords != null;
         if (ClientData.get().isGameInSession()) {
             altRespawnButton = buildAltRespawnButton(component,
                     (button) -> {
-                        // TODO: Custom Respawner
-                        //  send packet to server to change respawn point
                         ModMessages.sendToServer(new PortalRespawnerC2SPacket());
                         button.active = false;
                     }

@@ -250,7 +250,6 @@ public class PlayerData {
             ServerPlayer player = Game.get().getPlayer(uuid);
             DimensionID dimension = Game.getDimensionID(player.getLevel().dimension());
             portalRespawnCoords.get(dimension.index).put(uuid, portalCoords);
-            Game.LOG("Updated portal coords for " + uuid + " in dimension " + dimension.name() + " to " + portalCoords);
         }
         catch (Exception e) {
             Game.LOG("Exception " + e + " caught in PlayerData::updatePortal");

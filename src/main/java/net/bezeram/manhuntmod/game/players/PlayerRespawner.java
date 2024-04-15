@@ -50,7 +50,7 @@ public class PlayerRespawner {
         if (triggeredPortalRespawn) {
             Game.LOG("Portal Respawn triggered");
             if (respawnPos != null) {
-                player.setRespawnPosition(respawnPos.dimension(), respawnPos.pos(), player.getRespawnAngle(), true,
+                player.setRespawnPosition(respawnPos.dimension(), respawnPos.pos(), player.getRespawnAngle(), false,
                         false);
                 Game.LOG("Player position changed to the original");
             }
@@ -58,13 +58,15 @@ public class PlayerRespawner {
         }
     }
 
-    public void playerDied(ServerPlayer serverPlayer) {
-        savePlayerInventory(serverPlayer);
+    public void playerDied(final ServerPlayer serverPlayer) {
+        try {
+            savePlayerInventory(serverPlayer);
 
-        // Deduct from the game time if the serverPlayer is a runner
-        if (ManhuntGameRules.isTimeLimit() && Game.get().getPlayerData().isRunner(serverPlayer)) {
-            applyDeathPenalty(serverPlayer.getLevel());
-        }
+            // Deduct from the game time if the serverPlayer is a runner
+            if (ManhuntGameRules.isTimeLimit() && Game.get().getPlayerData().isRunner(serverPlayer)) {
+                applyDeathPenalty(serverPlayer.getLevel());
+            }
+        } catch (Exception ignored) {}
     }
 
     private void applyDeathPenalty(Level level) {
@@ -77,39 +79,40 @@ public class PlayerRespawner {
         }
     }
 
-    private void savePlayerInventory(ServerPlayer serverPlayer) {
+    private void savePlayerInventory(final ServerPlayer serverPlayer) {
         final int SLOT_COUNT = 41;
 
-        if (ManhuntGameRules.keepPartialInventory()) {
-            // Directly save inventory
-            if (ManhuntGameRules.keepInventoryEnd() && serverPlayer.getLevel().dimension() == Level.END) {
+        try {
+            if (ManhuntGameRules.keepPartialInventory()) {
+                // Directly save inventory
+                if (ManhuntGameRules.keepInventoryEnd() && serverPlayer.getLevel().dimension() == Level.END) {
+                    Inventory savedInventory = new Inventory(serverPlayer);
+                    savedInventory.replaceWith(serverPlayer.getInventory());
+                    serverPlayer.getInventory().clearContent();
+                    saveInventory(serverPlayer.getDisplayName().getString(), savedInventory);
+                    return;
+                }
+
+                // Save the serverPlayer's inventory, which is loaded on the first tick after respawn
                 Inventory savedInventory = new Inventory(serverPlayer);
-                savedInventory.replaceWith(serverPlayer.getInventory());
-                serverPlayer.getInventory().clearContent();
+                for (int slot = 0; slot < SLOT_COUNT; slot++) {
+                    ItemStack itemStack = serverPlayer.getInventory().getItem(slot);
+
+                    if (DeathSafeItems.isDeathSafe(itemStack.getItem())) {
+                        savedInventory.setItem(slot, itemStack);
+                        serverPlayer.getInventory().setItem(slot, ItemStack.EMPTY);
+                    }
+
+                    if (DeathSafeItems.isException(itemStack.getItem())) {
+                        Item converted = DeathSafeItems.convertExceptionItem(itemStack.getItem());
+                        savedInventory.setItem(slot, new ItemStack(converted));
+                        serverPlayer.getInventory().setItem(slot, ItemStack.EMPTY);
+                    }
+                }
+
                 saveInventory(serverPlayer.getDisplayName().getString(), savedInventory);
-                return;
             }
-
-            // Save the serverPlayer's inventory, which is loaded on the first tick after respawn
-            Inventory savedInventory = new Inventory(serverPlayer);
-            for (int slot = 0; slot < SLOT_COUNT; slot++) {
-                ItemStack itemStack = serverPlayer.getInventory().getItem(slot);
-
-                if (DeathSafeItems.isDeathSafe(itemStack.getItem())) {
-                    savedInventory.setItem(slot, itemStack);
-                    serverPlayer.getInventory().setItem(slot, ItemStack.EMPTY);
-                }
-
-                if (DeathSafeItems.isException(itemStack.getItem())) {
-                    Item converted = DeathSafeItems.convertExceptionItem(itemStack.getItem());
-                    savedInventory.setItem(slot, new ItemStack(converted));
-                    serverPlayer.getInventory().setItem(slot, ItemStack.EMPTY);
-                }
-            }
-
-            saveInventory(serverPlayer.getDisplayName().getString(), savedInventory);
-        }
-
+        } catch (Exception ignored) {}
     }
 
     public static void saveInventoryStatic(final String playerDisplayName, final Inventory inventory) {

@@ -12,7 +12,6 @@ import net.bezeram.manhuntmod.networking.packets.UpdatePortalRespawnS2CPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.ServerScoreboard;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
@@ -22,8 +21,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
-import net.minecraft.world.scores.Objective;
-import net.minecraft.world.scores.PlayerTeam;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -115,9 +112,9 @@ public class ModEvents {
 			Level level = event.getLevel();
 			BlockState blockState = level.getBlockState(blockPos);
 
-			boolean inOverworld  = level.dimensionTypeRegistration().is(BuiltinDimensionTypes.OVERWORLD);
-			boolean inNether 	 = level.dimensionTypeRegistration().is(BuiltinDimensionTypes.NETHER);
-			boolean inEnd 		 = level.dimensionTypeRegistration().is(BuiltinDimensionTypes.END);
+			boolean inOverworld  = level.dimension() == Level.OVERWORLD;
+			boolean inNether 	 = level.dimension() == Level.NETHER;
+			boolean inEnd 		 = level.dimension() == Level.END;
 			boolean isBed		 = blockState.isBed(level, blockPos, null);
 			boolean isAnchor	 = blockState.getBlock() == Blocks.RESPAWN_ANCHOR;
 
@@ -162,42 +159,9 @@ public class ModEvents {
 				Game.get().stopGame();
 				return;
 			}
+			Game.get().updateScoreboard(event);
 
-			// Update scoreboard
-			ServerScoreboard scoreboard = event.getServer().getScoreboard();
-			Objective objective = scoreboard.getObjective("TimeLeft");
-
-			if (objective != null) {
-				int secondsLeft = (int)(Game.get().getGameTime().asSeconds() - Game.get().getElapsedTime().asSeconds());
-				int minutesLeft = secondsLeft / 60;
-
-				String scoreLabel   = (minutesLeft >= 1) ? "Minutes" : "Seconds";
-				int score           = (minutesLeft >= 1) ? minutesLeft : secondsLeft;
-				if (minutesLeft < 1) {
-					scoreboard.resetPlayerScore("Minutes", objective);
-				}
-
-				scoreboard.getOrCreatePlayerScore(scoreLabel, objective).setScore(score);
-
-				// Sudden death
-				if (Game.get().isSuddenDeath() && !SuddenDeathWarning.hasTriggered) {
-					SuddenDeathWarning.broadcastMessage(event.getServer().getPlayerList(), Game.get().getTimeLeft());
-					PlayerTeam timeHighlight = scoreboard.addPlayerTeam("SuddenDeath");
-					scoreboard.addPlayerToTeam("Minutes", timeHighlight);
-					scoreboard.addPlayerToTeam("Seconds", timeHighlight);
-				}
-
-				if (SuddenDeathWarning.hasTriggered) {
-					// Cycle highlight
-					SuddenDeathWarning.updateScoreboardTime();
-					PlayerTeam playerTeam = scoreboard.getPlayerTeam("SuddenDeath");
-
-					assert playerTeam != null;
-					playerTeam.setColor(SuddenDeathWarning.scoreboardTimeColor);
-				}
-			}
-			else
-				System.out.println("ERROR: Game display scoreboard has null objective");
+			Game.get().tryUpdatePortalCoords();
 		}
 
 		@SubscribeEvent
@@ -212,9 +176,11 @@ public class ModEvents {
 				return;
 			}
 
-			if (event.getEntity() instanceof ServerPlayer serverPlayer && !serverPlayer.isCreative()) {
-				PlayerRespawner.playerDiedStatic(serverPlayer);
-			}
+			try {
+				if (event.getEntity() instanceof ServerPlayer serverPlayer && !serverPlayer.isCreative()) {
+					PlayerRespawner.playerDiedStatic(serverPlayer);
+				}
+			} catch (Exception ignored) {}
 		}
 
         @SubscribeEvent
@@ -234,17 +200,6 @@ public class ModEvents {
 
 		@SubscribeEvent
 		public static void onPlayerChangeDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
-			if (event.getEntity().getLevel().isClientSide || !Game.inSession())
-				return;
-
-			ServerPlayer player = (ServerPlayer)event.getEntity();
-			Game.LOG("PlayerChangedDimension - dimension: " + player.getLevel().dimension());
-			Game.LOG("PlayerChangedDimension - position: " + player.getPosition(1));
-			Game.get().getPlayerData().updatePortal(player.getUUID(), player.getOnPos().above());
-			BlockPos portalCoords = player.getOnPos().above();
-
-			// Send packet to client
-			ModMessages.sendToPlayer(new UpdatePortalRespawnS2CPacket(portalCoords), player);
 		}
     }
 }

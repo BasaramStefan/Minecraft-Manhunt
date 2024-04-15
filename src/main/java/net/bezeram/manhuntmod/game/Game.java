@@ -4,11 +4,12 @@ import com.mojang.brigadier.context.CommandContext;
 import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game.players.PlayerData;
-import net.bezeram.manhuntmod.gui.custom.ExtendedDeathScreen;
 import net.bezeram.manhuntmod.networking.ModMessages;
 import net.bezeram.manhuntmod.networking.packets.UpdateGameStateS2CPacket;
+import net.bezeram.manhuntmod.networking.packets.UpdatePortalRespawnS2CPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -17,6 +18,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
@@ -230,8 +233,7 @@ public class Game {
 						hunterHasWon();
 				}
 
-				// Update compass
-				// Use the Beacon powered / unpowered sounds for when it detects dimension change
+				timer.updatePortalRespawnCheck();
 			}
 			case END -> {
 				// Common end of game functionality
@@ -344,6 +346,65 @@ public class Game {
 	private void lockPlayersPos() {
 		for (ServerPlayer player : playerData.getPlayers())
 			teleportIfMoving(player);
+	}
+
+	public void updateScoreboard(TickEvent.ServerTickEvent event) {
+		// Update scoreboard
+		ServerScoreboard scoreboard = event.getServer().getScoreboard();
+		Objective objective = scoreboard.getObjective("TimeLeft");
+
+		if (objective != null) {
+			int secondsLeft = (int)(Game.get().getGameTime().asSeconds() - Game.get().getElapsedTime().asSeconds());
+			int minutesLeft = secondsLeft / 60;
+
+			String scoreLabel   = (minutesLeft >= 1) ? "Minutes" : "Seconds";
+			int score           = (minutesLeft >= 1) ? minutesLeft : secondsLeft;
+			if (minutesLeft < 1) {
+				scoreboard.resetPlayerScore("Minutes", objective);
+			}
+
+			scoreboard.getOrCreatePlayerScore(scoreLabel, objective).setScore(score);
+
+			// Sudden death
+			if (Game.get().isSuddenDeath() && !ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered) {
+				ModEvents.ForgeEvents.SuddenDeathWarning.broadcastMessage(event.getServer().getPlayerList(), Game.get().getTimeLeft());
+				PlayerTeam timeHighlight = scoreboard.addPlayerTeam("SuddenDeath");
+				scoreboard.addPlayerToTeam("Minutes", timeHighlight);
+				scoreboard.addPlayerToTeam("Seconds", timeHighlight);
+			}
+
+			if (ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered) {
+				// Cycle highlight
+				ModEvents.ForgeEvents.SuddenDeathWarning.updateScoreboardTime();
+				PlayerTeam playerTeam = scoreboard.getPlayerTeam("SuddenDeath");
+
+				assert playerTeam != null;
+				playerTeam.setColor(ModEvents.ForgeEvents.SuddenDeathWarning.scoreboardTimeColor);
+			}
+		}
+		else
+			Game.LOG("ERROR: Game display scoreboard has null objective");
+	}
+
+	public void tryUpdatePortalCoords() {
+		if (timer.portalRespawnCheck()) {
+			timer.resetPortalRespawnCheck();
+
+			try {
+				for (ServerPlayer player : playerData.getPlayers()) {
+					BlockPos pos = player.getOnPos().above();
+					BlockState blockState = player.getLevel().getBlockState(pos);
+					if (blockState.getBlock() == Blocks.NETHER_PORTAL) {
+						Game.get().getPlayerData().updatePortal(player.getUUID(), player.getOnPos().above());
+						BlockPos portalCoords = player.getOnPos().above();
+
+						// Send packet to client
+						ModMessages.sendToPlayer(new UpdatePortalRespawnS2CPacket(portalCoords), player);
+					}
+				}
+
+			} catch (Exception ignored) {}
+		}
 	}
 
 	public enum GameState {

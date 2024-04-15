@@ -14,12 +14,14 @@ public class GameTimer {
 	private static Time DEATH_PENALTY 			= Time.TimeMinutes(5);
 	private static Time PAUSE 					= Time.TimeMinutes(10);
 	private static Time RESUME 					= Time.TimeSeconds(5);
+	private static Time PORTAL_RESPAWN_CHECK 	= Time.TimeSeconds(0.1);
 
-	public void updatePlayerPosition()  { activePlayerPosition.advance(); }
-	public void updateActive() 		    { activeGame.advance(); }
-	public void updateStart() 	        { activeStart.advance(); }
-	public void updateHeadstart() 	    { activeHeadstart.advance(); }
-	public void updateResume() 	        { activeResume.advance(); }
+	public void updatePlayerPosition()      { activePlayerPosition.advance(); }
+	public void updateActive() 		        { activeGame.advance(); }
+	public void updateStart() 	            { activeStart.advance(); }
+	public void updateHeadstart() 	        { activeHeadstart.advance(); }
+	public void updateResume() 	            { activeResume.advance(); }
+	public void updatePortalRespawnCheck()  { activePortalRespawnCheck.advance(); }
 	public void applyDeathPenalty() {
 		// If the current game time is below the death penalty,
 		// it will not be updated as to show how much time was left on scoreboard
@@ -34,16 +36,18 @@ public class GameTimer {
 	public void updateHeadstartHints(TickEvent.ServerTickEvent event)   { displayHeadstartHint(event); }
 	public void updateStartHints(TickEvent.ServerTickEvent event)       { displayStartHint(event); }
 	public void updateResumeHints(TickEvent.ServerTickEvent event)      { displayResumeHint(event); }
+	public void resetPortalRespawnCheck() { activePortalRespawnCheck.setTicks(0); }
 	public void resetPlayerPositionTime() { activePlayerPosition.setTicks(0); }
 	public void resetResumeHints() {
 		activeResume.setTicks(0);
 		prevActiveResume.setTicks(0);
 	}
 
-	public boolean activeTimeHasEnded()		{ return activeGame.asTicks() 		>= game.asTicks(); }
-	public boolean huntersHaveStarted()		{ return activeHeadstart.asTicks() 	>= headstart.asTicks(); }
-	public boolean runnersHaveStarted()     { return activeStart.asTicks()      >= start.asTicks(); }
-	public boolean gameResumed()            { return activeResume.asTicks()     >= resume.asTicks(); }
+	public boolean activeTimeHasEnded()		{ return activeGame.asTicks() 		        >= game.asTicks(); }
+	public boolean huntersHaveStarted()		{ return activeHeadstart.asTicks() 	        >= headstart.asTicks(); }
+	public boolean runnersHaveStarted()     { return activeStart.asTicks()              >= start.asTicks(); }
+	public boolean gameResumed()            { return activeResume.asTicks()             >= resume.asTicks(); }
+	public boolean portalRespawnCheck()     { return activePortalRespawnCheck.asTicks() >= portalRespawnCheck.asTicks(); }
 
 	public Time getSessionGame()            { return game; }
 	public Time getSessionStart()           { return start; }
@@ -106,10 +110,13 @@ public class GameTimer {
 	private Time activeResume = new Time();
 	private Time prevActiveResume = new Time();
 
+	private Time activePortalRespawnCheck = new Time();
+
 	private final Time game = RUNNER_LIMIT;
 	private final Time start = RUNNER_START;
 	private final Time headstart = HEADSTART;
 	private final Time deathPenalty = DEATH_PENALTY;
 	private final Time pause = PAUSE;
 	private final Time resume = RESUME;
+	private final Time portalRespawnCheck = PORTAL_RESPAWN_CHECK;
 }
