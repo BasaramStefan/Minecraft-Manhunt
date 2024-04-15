@@ -6,6 +6,7 @@ import net.bezeram.manhuntmod.game.GameTimer;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -44,12 +45,13 @@ public class PlayerRespawner {
         }
 
         // Reset the player's respawn position in case of portal respawn
-        BlockPos respawnPos = Game.get().getPlayerData().getRespawnBuffer(player.getUUID());
+        GlobalPos respawnPos = Game.get().getPlayerData().getRespawnBuffer(player.getUUID());
         boolean triggeredPortalRespawn = Game.get().getPlayerData().hasUsedPortalRespawn();
         if (triggeredPortalRespawn) {
             Game.LOG("Portal Respawn triggered");
             if (respawnPos != null) {
-                player.setRespawnPosition(player.getRespawnDimension(), respawnPos, player.getRespawnAngle(), true, false);
+                player.setRespawnPosition(respawnPos.dimension(), respawnPos.pos(), player.getRespawnAngle(), true,
+                        false);
                 Game.LOG("Player position changed to the original");
             }
             Game.get().getPlayerData().setUsedPortalRespawn(false);

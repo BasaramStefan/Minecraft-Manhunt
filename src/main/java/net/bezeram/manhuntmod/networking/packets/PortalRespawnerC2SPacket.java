@@ -3,6 +3,7 @@ package net.bezeram.manhuntmod.networking.packets;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.networking.ModMessages;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
@@ -26,10 +27,15 @@ public class PortalRespawnerC2SPacket {
                 if (player == null || !Game.inSession())
                     return;
 
-                BlockPos prevRespawnPosition = player.getRespawnPosition();
-                BlockPos nextRespawnPosition = Game.get().getPlayerData().getPortalRespawnCoords(player.getUUID());
-                Game.get().getPlayerData().setRespawnBuffer(player.getUUID(), prevRespawnPosition);
-                this.setRespawnPosition(player, nextRespawnPosition);
+                GlobalPos prevRespawnPos;
+                if (player.getRespawnPosition() == null)
+                    prevRespawnPos = GlobalPos.of(player.getRespawnDimension(), new BlockPos(0, 90, 0));
+                else
+                    prevRespawnPos = GlobalPos.of(player.getRespawnDimension(), player.getRespawnPosition());
+
+                BlockPos nextRespawnBlockPosition = Game.get().getPlayerData().getPortalRespawnCoords(player.getUUID());
+                Game.get().getPlayerData().setRespawnBuffer(player.getUUID(), prevRespawnPos);
+                this.setRespawnPosition(player, nextRespawnBlockPosition);
 
                 Game.get().getPlayerData().setUsedPortalRespawn(true);
                 Game.LOG("New Portal Respawn position set");

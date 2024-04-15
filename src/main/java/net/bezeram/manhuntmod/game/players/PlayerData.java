@@ -4,6 +4,7 @@ import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.GameTimer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -198,17 +199,17 @@ public class PlayerData {
 
         return null;
     }
-    public void setRespawnBuffer(final UUID uuid, final BlockPos portalCoords) {
-        if (portalCoords == null || uuid == null) {
+    public void setRespawnBuffer(final UUID uuid, final GlobalPos portalPos) {
+        if (portalPos == null || uuid == null) {
             Game.LOG("Attempted to change Portal Respawn Buffer with null for player "
                     + ((uuid != null) ? uuid : "  null"));
             return;
         }
 
-        currentRespawnBuffer.put(uuid, portalCoords);
+        respawnBuffer.put(uuid, portalPos);
     }
-    public BlockPos getRespawnBuffer(final UUID uuid) {
-        if (!currentRespawnBuffer.containsKey(uuid)) {
+    public GlobalPos getRespawnBuffer(final UUID uuid) {
+        if (!respawnBuffer.containsKey(uuid)) {
             Game.LOG("Attempted to access Current Portal Respawn Buffer for player: " + uuid.toString());
             return null;
         }
@@ -217,7 +218,7 @@ public class PlayerData {
             return null;
         }
 
-        return currentRespawnBuffer.get(uuid);
+        return respawnBuffer.get(uuid);
     }
 
     public final PlayerRespawner getPlayerRespawner() { return playerRespawner;}
@@ -274,7 +275,7 @@ public class PlayerData {
 
     // 0:Overworld, 1:Nether
     private final List<Hashtable<UUID, BlockPos>> portalRespawnCoords = new ArrayList<>(2);
-    private final Hashtable<UUID, BlockPos> currentRespawnBuffer = new Hashtable<>();
+    private final Hashtable<UUID, GlobalPos> respawnBuffer = new Hashtable<>();
     private boolean usedPortalRespawn = false;
 
     private final MinecraftServer server;

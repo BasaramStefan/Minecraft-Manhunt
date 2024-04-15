@@ -187,7 +187,7 @@ public class DebugCommand {
 							else
 								player.displayClientMessage(Component.literal("Portal Respawn coords are null"), false);
 
-							player.displayClientMessage(Component.literal("Normal respawn: " + player.getRespawnPosition()), false);
+							player.displayClientMessage(Component.literal("Normal respawn: " + player.getRespawnPosition() + " in " + player.getRespawnDimension()), false);
 							return 0;
 				}))
 				.then(Commands.literal("PrintLastPlayerPositions")
