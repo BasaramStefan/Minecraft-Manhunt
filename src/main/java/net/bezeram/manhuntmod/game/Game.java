@@ -4,8 +4,9 @@ import com.mojang.brigadier.context.CommandContext;
 import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game.players.PlayerData;
+import net.bezeram.manhuntmod.gui.custom.ExtendedDeathScreen;
 import net.bezeram.manhuntmod.networking.ModMessages;
-import net.bezeram.manhuntmod.networking.packets.ResetClientDataS2CPacket;
+import net.bezeram.manhuntmod.networking.packets.UpdateGameStateS2CPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
@@ -41,16 +42,18 @@ public class Game {
 		INSTANCE = new Game(teamRunner, teamHunter, playerList, server);
 		currentState = GameState.START;
 
-		INSTANCE.resetClientsData();
+		INSTANCE.updateClient();
 	}
 
 	public static boolean inSession() {
+		// TODO: change this to INSTANCE != null
+		//  Test if it crashes the game before committing :P
 		return currentState != GameState.NULL;
 	}
 
-	private void resetClientsData() {
+	private void updateClient() {
 		for (ServerPlayer player : playerData.getPlayers())
-			ModMessages.sendToPlayer(new ResetClientDataS2CPacket(), player);
+			ModMessages.sendToPlayer(new UpdateGameStateS2CPacket(inSession()), player);
 	}
 
 	public static Game get() {
@@ -116,13 +119,15 @@ public class Game {
 
 		List<ServerPlayer> playersList = command.getSource().getServer().getPlayerList().getPlayers();
 		for (ServerPlayer player : playersList) {
-			Vec3 lastPosition = player.getPosition(0);
-			Vec3 currentPosition = player.getPosition(1);
-			Vec3 deltaPos = new Vec3(currentPosition.x - lastPosition.x,
-										currentPosition.y - lastPosition.y,
-										currentPosition.z - lastPosition.z);
-			if (deltaPos.x != 0 || deltaPos.y != 0 || deltaPos.z != 0)
-				return false;
+			try {
+				Vec3 lastPosition = player.getPosition(0);
+				Vec3 currentPosition = player.getPosition(1);
+				Vec3 deltaPos = new Vec3(currentPosition.x - lastPosition.x,
+											currentPosition.y - lastPosition.y,
+											currentPosition.z - lastPosition.z);
+				if (deltaPos.x != 0 || deltaPos.y != 0 || deltaPos.z != 0)
+					return false;
+			} catch (NullPointerException ignored) {}
 		}
 
 		return true;
@@ -277,45 +282,51 @@ public class Game {
 	public ServerPlayer[] getRunnersArray() { return playerData.getRunners(); }
 
 	public static boolean isHunterAtGameState(Player player, GameState targetGameState) {
-		if (player.getTeam() == null || currentState != targetGameState)
+		if (player.getTeam() == null || currentState != targetGameState || !Game.inSession())
 			return false;
 
-		String playerName = player.getName().getString();
-		PlayerTeam hunterTeam = Game.get().getTeamHunter();
-		for (String hunter : hunterTeam.getPlayers()) {
-			if (hunter.contains(playerName)) {
-				return true;
+		try {
+			String playerName = player.getName().getString();
+			PlayerTeam hunterTeam = Game.get().getTeamHunter();
+			for (String hunter : hunterTeam.getPlayers()) {
+				if (hunter.contains(playerName)) {
+					return true;
+				}
 			}
-		}
 
-		return false;
+			return false;
+		} catch (Exception ignored) { return false;}
 	}
 
 	public static boolean isRunnerAtGameState(Player player, GameState targetGameState) {
 		if (player.getTeam() == null || currentState != targetGameState)
 			return false;
 
-		String playerName = player.getName().getString();
-		PlayerTeam teamRunner = Game.get().getTeamRunner();
-		for (String runner : teamRunner.getPlayers()) {
-			if (runner.contains(playerName)) {
-				return true;
+		try {
+			String playerName = player.getName().getString();
+			PlayerTeam teamRunner = Game.get().getTeamRunner();
+			for (String runner : teamRunner.getPlayers()) {
+				if (runner.contains(playerName)) {
+					return true;
+				}
 			}
-		}
 
-		return false;
+			return false;
+		} catch (Exception ignored) { return false; }
 	}
 
 	private void teleportIfMoving(final ServerPlayer serverPlayer) {
-		Vec3 prevPos = playerData.getCoords(serverPlayer);
-		Vec3 currentPos = serverPlayer.getPosition(1);
-		if (prevPos == null)
-			return;
+		try {
+			Vec3 prevPos = playerData.getCoords(serverPlayer);
+			Vec3 currentPos = serverPlayer.getPosition(1);
+			if (prevPos == null)
+				return;
 
-		if (currentPos.x != prevPos.x ||
-			currentPos.y != prevPos.y ||
-			currentPos.z != prevPos.z)
-			serverPlayer.teleportTo(prevPos.x, prevPos.y, prevPos.z);
+			if (currentPos.x != prevPos.x ||
+				currentPos.y != prevPos.y ||
+				currentPos.z != prevPos.z)
+				serverPlayer.teleportTo(prevPos.x, prevPos.y, prevPos.z);
+		} catch (Exception ignored) {}
 	}
 
 	private void lockHuntersPos() {
@@ -358,30 +369,17 @@ public class Game {
 		return DimensionID.NULL;
 	}
 
-	public static int getDimensionIDByName(String name) {
-		switch (name) {
-			case "Overworld" -> {
-				return 0;
-			}
-			case "Nether" -> {
-				return 1;
-			}
-			case "End" -> {
-				return 2;
-			}
-			default -> {
-				return -1;
-			}
-		}
-	}
-
-	public static ResourceKey<Level> getDimensionByID(DimensionID ID) {
+	public static ResourceKey<Level> getDimensionByID(final DimensionID ID) {
 		return switch (ID) {
 			case OVERWORLD -> Level.OVERWORLD;
 			case NETHER -> Level.NETHER;
 			case END -> Level.END;
 			default -> null;
 		};
+	}
+
+	public static void LOG(final String log) {
+		System.out.println("[LOG] " + log);
 	}
 
 	public final PlayerData getPlayerData() { return playerData; }

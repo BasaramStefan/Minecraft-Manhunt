@@ -9,7 +9,6 @@ import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.block.Block;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.CreativeModeTabEvent;
@@ -19,8 +18,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-
-import javax.annotation.Nullable;
 
 import static net.bezeram.manhuntmod.item.custom.HunterCompassItem.TAG_TARGET_PLAYER;
 import static net.bezeram.manhuntmod.item.custom.HunterCompassItem.TAG_TARGET_TRACKING;
@@ -59,23 +56,25 @@ public class ManhuntMod {
     public static class ClientModEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            event.enqueueWork(() -> ItemProperties.register(ModItems.HUNTER_COMPASS.get(),
-                    new ResourceLocation(ManhuntMod.MOD_ID, "angle"),
-                    new CompassItemPropertyFunction((clientLevel, itemStack, entity) -> {
-                        int MAID = itemStack.getOrCreateTag().getInt(TAG_TARGET_PLAYER);
-                        boolean isTracking = itemStack.getOrCreateTag().getBoolean(TAG_TARGET_TRACKING);
-                        ModMessages.sendToServer(new HunterCompassGetPosC2SPacket(MAID, isTracking));
+            event.enqueueWork(() -> {
+                ItemProperties.register(ModItems.HUNTER_COMPASS.get(),
+                        new ResourceLocation(ManhuntMod.MOD_ID, "angle"),
+                        new CompassItemPropertyFunction((clientLevel, itemStack, entity) -> {
+                            int MAID = itemStack.getOrCreateTag().getInt(TAG_TARGET_PLAYER);
+                            boolean isTracking = itemStack.getOrCreateTag().getBoolean(TAG_TARGET_TRACKING);
+                            ModMessages.sendToServer(new HunterCompassGetPosC2SPacket(MAID, isTracking));
 
-                        if (ClientData.get().getCompassData().targetX == Integer.MAX_VALUE)
-                            return null;
+                            if (ClientData.get().getHunterCompass().targetX == Integer.MAX_VALUE)
+                                return null;
 
-                        return GlobalPos.of(clientLevel.dimension(), new BlockPos(
-                                ClientData.get().getCompassData().targetX,
-                                0,
-                                ClientData.get().getCompassData().targetZ)
-                        );
-                    }
-            )));
+                            return GlobalPos.of(clientLevel.dimension(), new BlockPos(
+                                    ClientData.get().getHunterCompass().targetX,
+                                    0,
+                                    ClientData.get().getHunterCompass().targetZ)
+                            );
+                        }
+                        ));
+            });
         }
     }
 }

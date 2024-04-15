@@ -1,7 +1,9 @@
 package net.bezeram.manhuntmod.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game.Game;
@@ -9,10 +11,13 @@ import net.bezeram.manhuntmod.game.Time;
 import net.bezeram.manhuntmod.game.players.PlayerRespawner;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
+import net.bezeram.manhuntmod.networking.ModMessages;
+import net.bezeram.manhuntmod.networking.packets.DebugPrintClientDataS2CPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.data.registries.VanillaRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -30,6 +35,20 @@ public class DebugCommand {
 	public DebugCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
 		CommandBuildContext commandbuildcontext = Commands.createValidationContext(VanillaRegistries.createLookup());
 		dispatcher.register(Commands.literal("Debug")
+				.then(Commands.literal("PrintClientData").executes((command) -> {
+					ModMessages.sendToPlayer(new DebugPrintClientDataS2CPacket(), command.getSource().getPlayer());
+					return 0;
+				}))
+				.then(Commands.literal("SetRespawnPoint")
+						.then(Commands.argument("forced", BoolArgumentType.bool())
+								.executes((command) -> {
+									ServerPlayer player = command.getSource().getPlayer();
+									if (player != null)
+										player.setRespawnPosition(player.getRespawnDimension(), new BlockPos(player.getBlockX(),
+												player.getBlockY(), player.getBlockZ()), 0, BoolArgumentType.getBool(
+														command, "forced"), true);
+									return 0;
+				})))
 				.then(Commands.literal("ActiveTime").executes((command) -> {
 					// Print time elapsed since start of game
 					boolean isInSession = Game.inSession();
@@ -156,9 +175,27 @@ public class DebugCommand {
 									.literal("HighlightCycleTimer:" + cycle.asSeconds() + " -/- HighlightChangeDelay" + highlight.asSeconds()), false);
 							return 0;
 				}))
+				.then(Commands.literal("PrintRespawnCoords")
+						.executes((command) -> {
+							ServerPlayer player = command.getSource().getPlayer();
+							if (player == null || !Game.inSession())
+								return 1;
+
+							BlockPos blockPos = Game.get().getPlayerData().getPortalRespawnCoords(player.getUUID());
+							if (blockPos != null)
+								player.displayClientMessage(Component.literal(blockPos.toString()),	false);
+							else
+								player.displayClientMessage(Component.literal("Portal Respawn coords are null"), false);
+
+							player.displayClientMessage(Component.literal("Normal respawn: " + player.getRespawnPosition()), false);
+							return 0;
+				}))
 				.then(Commands.literal("PrintLastPlayerPositions")
 						.executes((command) -> {
-							ServerPlayer player = command.getSource().getPlayerOrException();
+							ServerPlayer player = command.getSource().getPlayer();
+							if (player == null || !Game.inSession())
+								return 1;
+
 							Vec3[] positions = new Vec3[]{
 								Game.get().getPlayerData().getCoords(DimensionID.OVERWORLD).get(player.getUUID()),
 								Game.get().getPlayerData().getCoords(DimensionID.NETHER).get(player.getUUID()),

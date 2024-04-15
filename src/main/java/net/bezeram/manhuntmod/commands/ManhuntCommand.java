@@ -72,9 +72,6 @@ public class ManhuntCommand {
 								HunterCompassItem.addOrUpdateTags(player.getLevel(), compass.getOrCreateTag());
 								if (!player.getInventory().add(compass))
 									player.drop(compass, false);
-
-//								int dimensionID = Game.getDimensionID(player.gtLevel().dimension());
-//								HunterCompassItem.putGlobalCompass(player.getUUID(), compass, dimensionID);
 							}
 						}
 
@@ -132,7 +129,7 @@ public class ManhuntCommand {
 
 					MinecraftServer server = command.getSource().getServer();
 					Game.init(teamRunner, teamHunter, server.getPlayerList(), server);
-					System.out.println("Successfully initiated Game class\n");
+					Game.LOG("Successfully initiated Game class\n");
 
 					for (ServerPlayer player : Game.get().getHuntersArray()) {
 						ItemStack compass = new ItemStack(ModItems.HUNTER_COMPASS.get());
@@ -140,7 +137,7 @@ public class ManhuntCommand {
 						if (!player.getInventory().add(compass))
 							player.drop(compass, false);
 					}
-					System.out.println("Successfully given out compasses\n");
+					Game.LOG("Successfully given out compasses\n");
 
 					command.getSource().getServer().getPlayerList().broadcastSystemMessage(Component
 								.literal("Starting game in: " + (int)Game.get().getStartDelay().asSeconds() + " " +
@@ -230,17 +227,12 @@ public class ManhuntCommand {
 
 	private static void setupScoreboard(ServerScoreboard scoreboard, PlayerTeam teamRunner, PlayerTeam teamHunter) {
 		Objective timer = scoreboard.getObjective("TimeLeft");
-
-		if (timer == null) {
-			Component sidebar = Component.translatable(ServerScoreboard.getDisplaySlotName(1));
-			ObjectiveCriteria.RenderType renderType = ObjectiveCriteria.RenderType.INTEGER;
-
-			timer = scoreboard.addObjective("TimeLeft", ObjectiveCriteria.DUMMY, sidebar, renderType);
-		}
-		else {
+		if (timer != null)
 			scoreboard.removeObjective(timer);
-		}
 
+		Component sidebar = Component.translatable(ServerScoreboard.getDisplaySlotName(1));
+		ObjectiveCriteria.RenderType renderType = ObjectiveCriteria.RenderType.INTEGER;
+		timer = scoreboard.addObjective("TimeLeft", ObjectiveCriteria.DUMMY, sidebar, renderType);
 
 		// Display teams
 		int score = 1;

@@ -93,11 +93,13 @@ public class HunterCompassItem extends Item {
 			tag.putInt(TAG_TARGET_PLAYER, 0);
 
 		CompassArray compassArray = Game.get().getPlayerData().getPlayerArray();
-		ServerPlayer targetPlayer = compassArray.getPlayer(tag.getInt(TAG_TARGET_PLAYER));
+		try {
+			ServerPlayer targetPlayer = compassArray.getPlayer(tag.getInt(TAG_TARGET_PLAYER));
 
-		DimensionID runnerDim = Game.getDimensionID(targetPlayer.getLevel().dimension());
-		DimensionID compassDim = Game.getDimensionID(compassLevel.dimension());
-		tag.putBoolean(TAG_TARGET_TRACKING, runnerDim == compassDim);
+			DimensionID runnerDim = Game.getDimensionID(targetPlayer.getLevel().dimension());
+			DimensionID compassDim = Game.getDimensionID(compassLevel.dimension());
+			tag.putBoolean(TAG_TARGET_TRACKING, runnerDim == compassDim);
+		} catch (NullPointerException ignored) {}
 	}
 
 	/**
@@ -115,11 +117,16 @@ public class HunterCompassItem extends Item {
 		if (!tag.contains(TAG_TARGET_PLAYER))
 			tag.putInt(TAG_TARGET_PLAYER, 0);
 		int MAID = tag.getInt(TAG_TARGET_PLAYER);
-		ServerPlayer target = Game.get().getPlayer(MAID);
-		BlockPos blockPos = getPlayerPosition(isCompassTracking(tag), compassLevel, target);
-		if (blockPos == null)
+
+		try {
+			ServerPlayer target = Game.get().getPlayer(MAID);
+			BlockPos blockPos = getPlayerPosition(isCompassTracking(tag), compassLevel, target);
+			if (blockPos == null)
+				return null;
+			return GlobalPos.of(compassLevel.dimension(), blockPos);
+		} catch (Exception ignored) {
 			return null;
-		return GlobalPos.of(compassLevel.dimension(), blockPos);
+		}
 	}
 
 	/**
@@ -132,9 +139,13 @@ public class HunterCompassItem extends Item {
 	public static BlockPos getPlayerPosition(boolean isTracking, ServerLevel compassLevel,
 	                                          final ServerPlayer target) {
 		// Live coords
-		if (isTracking) {
-			Vec3 pos = target.getPosition(1);
-			return new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
+		try {
+			if (isTracking) {
+				Vec3 pos = target.getPosition(1);
+				return new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
+			}
+		} catch (NullPointerException e) {
+			return null;
 		}
 
 		// Get the latest known coords in the compass's dimension of the target player

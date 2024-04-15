@@ -5,6 +5,7 @@ import net.bezeram.manhuntmod.game.ManhuntGameRules;
 import net.bezeram.manhuntmod.game.GameTimer;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -28,18 +29,30 @@ public class PlayerRespawner {
         Game.get().getPlayerData().getPlayerRespawner().playerDied(serverPlayer);
     }
 
-    public void playerRespawned(ServerPlayer serverPlayer) {
+    public void playerRespawned(final ServerPlayer player) {
         if (ManhuntGameRules.keepPartialInventory()) {
-            String playerName = serverPlayer.getDisplayName().getString();
+            String playerName = player.getDisplayName().getString();
 
             if (!isInventorySaved(playerName)) {
-                serverPlayer.displayClientMessage(Component
+                player.displayClientMessage(Component
                         .literal("ERROR: Inventory has not been saved yet for player: " + playerName)
                         .withStyle(ChatFormatting.RED), false);
                 return;
             }
 
-            serverPlayer.getInventory().replaceWith(getInventory(playerName));
+            player.getInventory().replaceWith(getInventory(playerName));
+        }
+
+        // Reset the player's respawn position in case of portal respawn
+        BlockPos respawnPos = Game.get().getPlayerData().getRespawnBuffer(player.getUUID());
+        boolean triggeredPortalRespawn = Game.get().getPlayerData().hasUsedPortalRespawn();
+        if (triggeredPortalRespawn) {
+            Game.LOG("Portal Respawn triggered");
+            if (respawnPos != null) {
+                player.setRespawnPosition(player.getRespawnDimension(), respawnPos, player.getRespawnAngle(), true, false);
+                Game.LOG("Player position changed to the original");
+            }
+            Game.get().getPlayerData().setUsedPortalRespawn(false);
         }
     }
 
@@ -56,8 +69,7 @@ public class PlayerRespawner {
         switch (ManhuntGameRules.getDeathPenalty()) {
             case TRUE -> timer.applyDeathPenalty();
             case TRUE_EXCEPT_END -> {
-                boolean diedInEnd = level.dimension() == Level.END;
-                if (!diedInEnd)
+                if (level.dimension() == Level.END)
                     timer.applyDeathPenalty();
             }
         }

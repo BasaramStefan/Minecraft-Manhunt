@@ -3,6 +3,7 @@ package net.bezeram.manhuntmod.game.players;
 import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.GameTimer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -13,7 +14,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Hashtable;
+import java.util.List;
 import java.util.UUID;
 
 public class PlayerData {
@@ -28,6 +31,8 @@ public class PlayerData {
         this.prevCoordsOverworld = new PlayerCoords(this);
         this.prevCoordsNether = new PlayerCoords(this);
         this.prevCoordsEnd = new PlayerCoords(this);
+        this.portalRespawnCoords.add(new Hashtable<>());
+        this.portalRespawnCoords.add(new Hashtable<>());
 
         int indexHunters = 0;
         int indexRunners = 0;
@@ -37,6 +42,7 @@ public class PlayerData {
             else if (isRunner(player))
                 runnersArray[indexRunners++] = Game.cloneUUID(player.getUUID());
         }
+        Game.LOG("PlayerData: created player arrays");
 
         this.compassArray = new CompassArray(runnersArray, huntersArray, server);
         for (UUID runnerUUID : runnersArray) {
@@ -45,17 +51,20 @@ public class PlayerData {
 
             playerCoords.update(runner.getUUID(), runner.getPosition(1));
         }
+        Game.LOG("PlayerData: created player coords runners");
         for (UUID hunterUUID : huntersArray) {
             ServerPlayer hunter = server.getPlayerList().getPlayer(hunterUUID);
             PlayerCoords playerCoords = getCoords(hunter.getLevel().dimension());
 
             playerCoords.update(hunter.getUUID(), hunter.getPosition(1));
         }
+        Game.LOG("PlayerData: created player coords hunters");
 
         this.playerRespawner = new PlayerRespawner(timer);
         this.playersArray = new UUID[runnersArray.length + huntersArray.length];
         System.arraycopy(runnersArray, 0, playersArray, 0, runnersArray.length);
         System.arraycopy(huntersArray, 0, playersArray, runnersArray.length, huntersArray.length);
+        Game.LOG("Constructed PlayerData");
     }
 
     public void updateCoords() {
@@ -125,11 +134,13 @@ public class PlayerData {
 
     public void updateAllCoords() {
         for (ServerPlayer player : getPlayers()) {
-            ServerLevel level = player.getLevel();
-            PlayerCoords coords = getCoords(level.dimension());
+            try {
+                ServerLevel level = player.getLevel();
+                PlayerCoords coords = getCoords(level.dimension());
 
-            if (coords != null)
-                coords.update(player.getUUID(), player.getPosition(0));
+                if (coords != null)
+                    coords.update(player.getUUID(), player.getPosition(0));
+            } catch (Exception ignored) {}
         }
     }
 
@@ -165,15 +176,58 @@ public class PlayerData {
         PlayerCoords coords = getCoords(serverPlayer.getLevel().dimension());
         return coords.get(serverPlayer.getUUID());
     }
-    public final PlayerCoords getPrevCoordsOverworld() { return prevCoordsOverworld; }
-    public final PlayerCoords getPrevCoordsNether() { return prevCoordsNether; }
-    public final PlayerCoords getPrevCoordsEnd() { return prevCoordsEnd; }
+    public final BlockPos getPortalRespawnCoords(final UUID uuid) {
+        try {
+            ServerPlayer player = Game.get().getPlayer(uuid);
+            DimensionID dimension = Game.getDimensionID(player.getLevel().dimension());
+
+            if (!(portalRespawnCoords.get(dimension.index).containsKey(uuid))) {
+                Game.LOG("Attempted to access Portal Respawn Coords for player: " + uuid.toString());
+                return null;
+            }
+            if (uuid == null) {
+                Game.LOG("Attempted to access Portal Respawn Coords with null uuid");
+                return null;
+            }
+
+            return portalRespawnCoords.get(dimension.index).get(uuid);
+        }
+        catch (Exception e) {
+            Game.LOG("Exception" + e + " caught in PlayerData::getPlayerRespawnCoords");
+        }
+
+        return null;
+    }
+    public void setRespawnBuffer(final UUID uuid, final BlockPos portalCoords) {
+        if (portalCoords == null || uuid == null) {
+            Game.LOG("Attempted to change Portal Respawn Buffer with null for player "
+                    + ((uuid != null) ? uuid : "  null"));
+            return;
+        }
+
+        currentRespawnBuffer.put(uuid, portalCoords);
+    }
+    public BlockPos getRespawnBuffer(final UUID uuid) {
+        if (!currentRespawnBuffer.containsKey(uuid)) {
+            Game.LOG("Attempted to access Current Portal Respawn Buffer for player: " + uuid.toString());
+            return null;
+        }
+        if (uuid == null) {
+            Game.LOG("Attempted to access Current Portal Respawn Buffer with null uuid");
+            return null;
+        }
+
+        return currentRespawnBuffer.get(uuid);
+    }
 
     public final PlayerRespawner getPlayerRespawner() { return playerRespawner;}
     public final CompassArray getPlayerArray() { return compassArray; }
     public final ServerPlayer getPlayer(int MAID) {
         return compassArray.getPlayer(MAID);
     }
+
+    public void setUsedPortalRespawn(boolean active) { usedPortalRespawn = active; }
+    public boolean hasUsedPortalRespawn() { return usedPortalRespawn; }
 
     public final PlayerList getList() { return list; }
     public final ServerPlayer[] getPlayers() {
@@ -182,6 +236,24 @@ public class PlayerData {
         for (UUID uuid : playersArray)
             players[i++] = Game.get().getPlayer(uuid);
         return players;
+    }
+
+    public void updatePortal(final UUID uuid, final BlockPos portalCoords) {
+        try {
+            if (portalCoords == null || uuid == null) {
+                Game.LOG("Attempted to change Portal Respawn with null for player "
+                    + ((uuid != null) ? uuid : "  null"));
+                return;
+            }
+
+            ServerPlayer player = Game.get().getPlayer(uuid);
+            DimensionID dimension = Game.getDimensionID(player.getLevel().dimension());
+            portalRespawnCoords.get(dimension.index).put(uuid, portalCoords);
+            Game.LOG("Updated portal coords for " + uuid + " in dimension " + dimension.name() + " to " + portalCoords);
+        }
+        catch (Exception e) {
+            Game.LOG("Exception " + e + " caught in PlayerData::updatePortal");
+        }
     }
 
     private final PlayerRespawner playerRespawner;
@@ -199,6 +271,11 @@ public class PlayerData {
     private final PlayerCoords prevCoordsOverworld;
     private final PlayerCoords prevCoordsNether;
     private final PlayerCoords prevCoordsEnd;
+
+    // 0:Overworld, 1:Nether
+    private final List<Hashtable<UUID, BlockPos>> portalRespawnCoords = new ArrayList<>(2);
+    private final Hashtable<UUID, BlockPos> currentRespawnBuffer = new Hashtable<>();
+    private boolean usedPortalRespawn = false;
 
     private final MinecraftServer server;
 }

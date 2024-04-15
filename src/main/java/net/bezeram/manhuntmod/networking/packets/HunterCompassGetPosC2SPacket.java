@@ -36,19 +36,21 @@ public class HunterCompassGetPosC2SPacket {
             if (!Game.inSession())
                 return;
 
-            ServerPlayer hunter = context.getSender();
-            ServerLevel compassLevel = hunter.getLevel();
-            ServerPlayer target = Game.get().getPlayer(MAID);
+            try {
+                ServerPlayer hunter = context.getSender();
+                ServerLevel compassLevel = hunter.getLevel();
+                ServerPlayer target = Game.get().getPlayer(MAID);
 
-            BlockPos playerPos = getPlayerPosition(isTracking, compassLevel, target);
-            int posX = Integer.MAX_VALUE;
-            int posZ = Integer.MAX_VALUE;
-            if (playerPos != null) {
-                posX = playerPos.getX();
-                posZ = playerPos.getZ();
-            }
+                BlockPos playerPos = getPlayerPosition(isTracking, compassLevel, target);
+                int posX = Integer.MAX_VALUE;
+                int posZ = Integer.MAX_VALUE;
+                if (playerPos != null) {
+                    posX = playerPos.getX();
+                    posZ = playerPos.getZ();
+                }
 
-            ModMessages.sendToPlayer(new HunterCompassGetPosS2CPacket(posX, posZ), hunter);
+                ModMessages.sendToPlayer(new HunterCompassGetPosS2CPacket(posX, posZ), hunter);
+            } catch (Exception ignored)  {}
         });
         context.setPacketHandled(true);
     }

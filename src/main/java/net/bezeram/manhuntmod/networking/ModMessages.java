@@ -1,20 +1,14 @@
 package net.bezeram.manhuntmod.networking;
 
-import com.mojang.serialization.Decoder;
-import io.netty.channel.ChannelException;
-import io.netty.channel.ChannelFactory;
 import net.bezeram.manhuntmod.ManhuntMod;
-import net.bezeram.manhuntmod.networking.packets.HunterCompassGetPosC2SPacket;
-import net.bezeram.manhuntmod.networking.packets.HunterCompassGetPosS2CPacket;
-import net.bezeram.manhuntmod.networking.packets.HunterCompassUseC2SPacket;
-import net.bezeram.manhuntmod.networking.packets.ResetClientDataS2CPacket;
-import net.minecraft.client.Minecraft;
+import net.bezeram.manhuntmod.networking.packets.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
+import org.jetbrains.annotations.Debug;
 
 public class ModMessages {
 	private static SimpleChannel INSTANCE;
@@ -44,16 +38,40 @@ public class ModMessages {
 				.consumerMainThread(HunterCompassGetPosC2SPacket::handle)
 				.add();
 
+		net.messageBuilder(PortalRespawnerC2SPacket.class, ID(), NetworkDirection.PLAY_TO_SERVER)
+				.decoder(PortalRespawnerC2SPacket::new)
+				.encoder(PortalRespawnerC2SPacket::toBytes)
+				.consumerMainThread(PortalRespawnerC2SPacket::handle)
+				.add();
+
 		net.messageBuilder(HunterCompassGetPosS2CPacket.class, ID(), NetworkDirection.PLAY_TO_CLIENT)
 				.decoder(HunterCompassGetPosS2CPacket::new)
 				.encoder(HunterCompassGetPosS2CPacket::toBytes)
 				.consumerMainThread(HunterCompassGetPosS2CPacket::handle)
 				.add();
 
-		net.messageBuilder(ResetClientDataS2CPacket.class, ID(), NetworkDirection.PLAY_TO_CLIENT)
-				.decoder(ResetClientDataS2CPacket::new)
-				.encoder(ResetClientDataS2CPacket::toBytes)
-				.consumerMainThread(ResetClientDataS2CPacket::handle)
+		net.messageBuilder(UpdateGameStateS2CPacket.class, ID(), NetworkDirection.PLAY_TO_CLIENT)
+				.decoder(UpdateGameStateS2CPacket::new)
+				.encoder(UpdateGameStateS2CPacket::toBytes)
+				.consumerMainThread(UpdateGameStateS2CPacket::handle)
+				.add();
+
+		net.messageBuilder(UpdatePortalRespawnS2CPacket.class, ID(), NetworkDirection.PLAY_TO_CLIENT)
+				.decoder(UpdatePortalRespawnS2CPacket::new)
+				.encoder(UpdatePortalRespawnS2CPacket::toBytes)
+				.consumerMainThread(UpdatePortalRespawnS2CPacket::handle)
+				.add();
+
+		net.messageBuilder(PortalRespawnSetAcknowledgeS2CPacket.class, ID(), NetworkDirection.PLAY_TO_CLIENT)
+				.decoder(PortalRespawnSetAcknowledgeS2CPacket::new)
+				.encoder(PortalRespawnSetAcknowledgeS2CPacket::toBytes)
+				.consumerMainThread(PortalRespawnSetAcknowledgeS2CPacket::handle)
+				.add();
+
+		net.messageBuilder(DebugPrintClientDataS2CPacket.class, ID(), NetworkDirection.PLAY_TO_CLIENT)
+				.decoder(DebugPrintClientDataS2CPacket::new)
+				.encoder(DebugPrintClientDataS2CPacket::toBytes)
+				.consumerMainThread(DebugPrintClientDataS2CPacket::handle)
 				.add();
 	}
 

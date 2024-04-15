@@ -30,7 +30,7 @@ public class HunterCompassGetPosS2CPacket {
         context.enqueueWork(() -> {
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
                 // CLIENT SIDE
-                ClientData.Compass compassData = ClientData.get().getCompassData();
+                ClientData.HunterCompass compassData = ClientData.get().getHunterCompass();
                 compassData.targetX = message.targetX;
                 compassData.targetZ = message.targetZ;
             });

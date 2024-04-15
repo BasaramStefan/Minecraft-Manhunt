@@ -7,7 +7,8 @@ import net.bezeram.manhuntmod.game.ManhuntGameRules;
 import net.bezeram.manhuntmod.game.Time;
 import net.bezeram.manhuntmod.game.players.PlayerRespawner;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
-import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
+import net.bezeram.manhuntmod.networking.ModMessages;
+import net.bezeram.manhuntmod.networking.packets.UpdatePortalRespawnS2CPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -211,8 +212,9 @@ public class ModEvents {
 				return;
 			}
 
-			if (event.getEntity() instanceof ServerPlayer serverPlayer && !serverPlayer.isCreative())
+			if (event.getEntity() instanceof ServerPlayer serverPlayer && !serverPlayer.isCreative()) {
 				PlayerRespawner.playerDiedStatic(serverPlayer);
+			}
 		}
 
         @SubscribeEvent
@@ -220,11 +222,29 @@ public class ModEvents {
 			if (event.getEntity().getLevel().isClientSide() || !Game.inSession() || event.isEndConquered())
 				return;
 
-			ServerPlayer serverPlayer = (ServerPlayer) event.getEntity();
-			if (serverPlayer.isCreative())
+			try {
+				ServerPlayer serverPlayer = (ServerPlayer) event.getEntity();
+				if (serverPlayer.isCreative())
+					return;
+
+				PlayerRespawner.playerRespawnedStatic(serverPlayer);
+
+			} catch(Exception ignored) {}
+		}
+
+		@SubscribeEvent
+		public static void onPlayerChangeDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
+			if (event.getEntity().getLevel().isClientSide || !Game.inSession())
 				return;
 
-			PlayerRespawner.playerRespawnedStatic(serverPlayer);
+			ServerPlayer player = (ServerPlayer)event.getEntity();
+			Game.LOG("PlayerChangedDimension - dimension: " + player.getLevel().dimension());
+			Game.LOG("PlayerChangedDimension - position: " + player.getPosition(1));
+			Game.get().getPlayerData().updatePortal(player.getUUID(), player.getOnPos().above());
+			BlockPos portalCoords = player.getOnPos().above();
+
+			// Send packet to client
+			ModMessages.sendToPlayer(new UpdatePortalRespawnS2CPacket(portalCoords), player);
 		}
     }
 }

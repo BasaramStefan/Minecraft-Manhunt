@@ -1,7 +1,6 @@
 package net.bezeram.manhuntmod.game;
 
-import net.bezeram.manhuntmod.networking.ModMessages;
-import net.bezeram.manhuntmod.networking.packets.HunterCompassGetPosC2SPacket;
+import net.minecraft.core.BlockPos;
 
 /**
  * This class is only instantiated for the clients and contains data to be shared between
@@ -22,20 +21,41 @@ public class ClientData {
         timer.update();
     }
 
-    public void reset() {
-        compassData.targetX = 0;
-        compassData.targetZ = 0;
+    public HunterCompass getHunterCompass() {
+        return hunterCompass;
     }
 
-    public static class Compass {
+    public BlockPos getPortalRespawnCoords() { return altRespawnPacket.coords; }
+    public void setPortalRespawnCoords(final BlockPos coords) { altRespawnPacket.coords = coords; }
+    public boolean isRespawnPointChangeAcknowledged() { return altRespawnPacket.respawnPointChangeAcknowledged; }
+    public void respawnPointAcknowledged() { altRespawnPacket.respawnPointChangeAcknowledged = true; }
+    public void respawnPointAcknowledgeReset() { altRespawnPacket.respawnPointChangeAcknowledged = false; }
+
+    public boolean isGameInSession() { return isGameInSession; }
+    public void setGameSession(boolean session) { isGameInSession = session; }
+
+    public void reset(boolean isGameInSession) {
+        this.isGameInSession = isGameInSession;
+        hunterCompass.reset();
+        altRespawnPacket.reset();
+    }
+
+    private final HunterCompass hunterCompass = new HunterCompass();
+    private final AltRespawnPacket altRespawnPacket = new AltRespawnPacket();
+    private final ClientTimer timer = new ClientTimer();
+    private boolean isGameInSession = false;
+
+    public static class HunterCompass {
+        public void reset() { targetX = 0; targetZ = 0; }
+
         public int targetX = 0;
         public int targetZ = 0;
-    };
+    }
 
-    private final Compass compassData = new Compass();
-    private final ClientTimer timer = new ClientTimer();
+    public static class AltRespawnPacket {
+        public void reset() { coords = null; respawnPointChangeAcknowledged = false; }
 
-    public Compass getCompassData() {
-        return compassData;
+        public BlockPos coords = null;
+        public boolean respawnPointChangeAcknowledged = false;
     }
 }

@@ -39,62 +39,65 @@ public class HunterCompassUseC2SPacket {
 		NetworkEvent.Context context = supplier.get();
 		context.enqueueWork(() -> {
 			// SERVER SIDE
-			ServerPlayer player = context.getSender();
-			assert player != null;
 
-			InteractionHand interactionHand = (this.mainHand) ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
-			ServerLevel level = player.getLevel();
-			ItemStack itemUsed = player.getItemInHand(interactionHand);
+			try {
+				ServerPlayer player = context.getSender();
+				assert player != null;
 
-			if (!Game.inSession()) {
-				player.sendSystemMessage(Component.literal("No game in session").withStyle(ChatFormatting.RED));
-				HunterCompassItem.removeTags(level, itemUsed.getOrCreateTag());
-				return;
-			}
+				InteractionHand interactionHand = (this.mainHand) ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+				ServerLevel level = player.getLevel();
+				ItemStack itemUsed = player.getItemInHand(interactionHand);
 
-			BlockPos playerBlockPos = new BlockPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
-
-			level.playSound(null, playerBlockPos, SoundEvents.LODESTONE_COMPASS_LOCK, SoundSource.PLAYERS,
-					1.0F,
-					1.0F);
-
-			HunterCompassItem.addOrUpdateTags(level, itemUsed.getOrCreateTag());
-			CompoundTag tag = itemUsed.getOrCreateTag();
-			int MAID = tag.getInt(HunterCompassItem.TAG_TARGET_PLAYER);
-			CompassArray compassArray = Game.get().getPlayerData().getPlayerArray();
-
-			if (!shiftPressed) {
-				// Toggling to runner
-				int newID = compassArray.cycleRunners(MAID);
-				tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
-
-				String newTargetName = compassArray.getPlayer(newID).getName().getString();
-				itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
-			}
-			else {
-				// Toggling to hunter
-				int newID = compassArray.cycleHunters(MAID);
-				// check if the player cycled to is the same player using the compass
-				if (compassArray.samePlayer(player, newID)) {
-					if (compassArray.getHunterCount() == 1) {
-						// Only one hunter in the team -> cancel use
-						return;
-					}
-
-					// Cycle again
-					newID = compassArray.cycleHunters(newID);
-				}
-				tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
-
-				ServerPlayer targetPlayer = compassArray.getPlayer(newID);
-				if (targetPlayer == null) {
-					itemUsed.setHoverName(Component.literal("Tracking NULL"));
+				if (!Game.inSession()) {
+					player.sendSystemMessage(Component.literal("No game in session").withStyle(ChatFormatting.RED));
+					HunterCompassItem.removeTags(level, itemUsed.getOrCreateTag());
 					return;
 				}
 
-				String newTargetName = targetPlayer.getName().getString();
-				itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
-			}
+				BlockPos playerBlockPos = new BlockPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
+
+				level.playSound(null, playerBlockPos, SoundEvents.LODESTONE_COMPASS_LOCK, SoundSource.PLAYERS,
+						1.0F,
+						1.0F);
+
+				HunterCompassItem.addOrUpdateTags(level, itemUsed.getOrCreateTag());
+				CompoundTag tag = itemUsed.getOrCreateTag();
+				int MAID = tag.getInt(HunterCompassItem.TAG_TARGET_PLAYER);
+				CompassArray compassArray = Game.get().getPlayerData().getPlayerArray();
+
+				if (!shiftPressed) {
+					// Toggling to runner
+					int newID = compassArray.cycleRunners(MAID);
+					tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
+
+					String newTargetName = compassArray.getPlayer(newID).getName().getString();
+					itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
+				}
+				else {
+					// Toggling to hunter
+					int newID = compassArray.cycleHunters(MAID);
+					// check if the player cycled to is the same player using the compass
+					if (compassArray.samePlayer(player, newID)) {
+						if (compassArray.getHunterCount() == 1) {
+							// Only one hunter in the team -> cancel use
+							return;
+						}
+
+						// Cycle again
+						newID = compassArray.cycleHunters(newID);
+					}
+					tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
+
+					ServerPlayer targetPlayer = compassArray.getPlayer(newID);
+					if (targetPlayer == null) {
+						itemUsed.setHoverName(Component.literal("Tracking NULL"));
+						return;
+					}
+
+					String newTargetName = targetPlayer.getName().getString();
+					itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
+				}
+			} catch (Exception ignored) {}
 		});
 		context.setPacketHandled(true);
 	}
