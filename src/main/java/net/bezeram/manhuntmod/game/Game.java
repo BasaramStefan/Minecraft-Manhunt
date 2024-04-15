@@ -51,7 +51,7 @@ public class Game {
 	public static boolean inSession() {
 		// TODO: change this to INSTANCE != null
 		//  Test if it crashes the game before committing :P
-		return currentState != GameState.NULL;
+		return INSTANCE != null;
 	}
 
 	private void updateClient() {
