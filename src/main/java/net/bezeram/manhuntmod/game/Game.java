@@ -60,8 +60,6 @@ public class Game {
 	}
 
 	public static Game get() {
-		if (INSTANCE == null)
-			return null;
 		return INSTANCE;
 	}
 
