@@ -108,10 +108,16 @@ public class ManhuntCommand {
 						return 1;
 					}
 
-					// Instantiate runner team and add the runner
+					// Instantiate teams
 					ServerScoreboard scoreboard = command.getSource().getServer().getScoreboard();
+					// reset player teams
 					PlayerTeam teamRunner = scoreboard.addPlayerTeam(runnerName);
 					PlayerTeam teamHunter = scoreboard.addPlayerTeam(hunterName);
+					scoreboard.removePlayerTeam(teamRunner);
+					scoreboard.removePlayerTeam(teamHunter);
+					teamRunner = scoreboard.addPlayerTeam(runnerName);
+					teamHunter = scoreboard.addPlayerTeam(hunterName);
+
 					teamRunner.setDisplayName(Component.literal(runner.getName().getString()));
 					teamHunter.setDisplayName(Component.literal(hunter.getName().getString()));
 					teamRunner.setColor(ChatFormatting.DARK_GREEN);

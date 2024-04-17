@@ -161,7 +161,7 @@ public class ModEvents {
 			}
 			Game.get().updateScoreboard(event);
 
-			Game.get().tryUpdatePortalCoords();
+			Game.get().ifPlayersInPortal();
 		}
 
 		@SubscribeEvent
