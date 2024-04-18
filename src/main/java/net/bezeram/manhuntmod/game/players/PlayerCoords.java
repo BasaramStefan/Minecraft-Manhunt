@@ -10,22 +10,26 @@ import java.util.UUID;
 public class PlayerCoords {
 
     public void update(final UUID uuid, final Vec3 newPosition) {
-        coords.put(uuid, newPosition);
+        try {
+            coords.put(uuid, newPosition);
+        } catch (Exception ignored) {}
     }
 
     public void update(final UUID uuid) {
-        if (!Game.inSession())
-            return;
+        try {
+            if (!Game.inSession())
+                return;
 
-        ServerPlayer player = Game.get().getPlayer(uuid);
-        PlayerCoords coords = playerData.getCoords(player.getLevel().dimension());
+            ServerPlayer player = Game.get().getPlayer(uuid);
+            PlayerCoords coords = playerData.getLastPosition(player.getLevel().dimension());
 
-        if (coords != null)
-            coords.update(uuid, player.getPosition(1));
+            if (coords != null)
+                coords.update(uuid, player.getPosition(1));
+        } catch (Exception ignored) {}
     }
 
     public Vec3 get(final UUID uuid) {
-        if (!coords.containsKey(uuid))
+        if (!coords.containsKey(uuid) || uuid == null)
             return null;
 
         return coords.get(uuid);

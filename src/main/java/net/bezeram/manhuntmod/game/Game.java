@@ -317,7 +317,7 @@ public class Game {
 
 	private void teleportIfMoving(final ServerPlayer serverPlayer) {
 		try {
-			Vec3 prevPos = playerData.getCoords(serverPlayer);
+			Vec3 prevPos = playerData.getLastPosition(serverPlayer);
 			Vec3 currentPos = serverPlayer.getPosition(1);
 			if (prevPos == null)
 				return;
@@ -465,7 +465,7 @@ public class Game {
 			timer.resetPortalRespawnCheck();
 
 			try {
-				Game.get().getPlayerData().updatePortal(player.getUUID(), portalCoords);
+				Game.get().getPlayerData().updateNetherPortalPosition(player.getUUID(), portalCoords);
 
 				ModMessages.sendToPlayer(new UpdatePortalRespawnS2CPacket(portalCoords), player);
 			} catch (Exception ignored) {}

@@ -149,7 +149,7 @@ public class HunterCompassItem extends Item {
 		}
 
 		// Get the latest known coords in the compass's dimension of the target player
-		Vec3 pos = Game.get().getPlayerData().getCoords(compassLevel.dimension()).get(target.getUUID());
+		Vec3 pos = Game.get().getPlayerData().getLastPosition(compassLevel.dimension()).get(target.getUUID());
 		if (pos == null)
 			return null;
 		return new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);

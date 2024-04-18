@@ -45,9 +45,9 @@ public class PlayerRespawner {
         }
 
         // Reset the player's respawn position in case of portal respawn
-        GlobalPos respawnPos = Game.get().getPlayerData().getRespawnBuffer(player.getUUID());
         boolean triggeredPortalRespawn = Game.get().getPlayerData().hasUsedPortalRespawn();
         if (triggeredPortalRespawn) {
+            GlobalPos respawnPos = Game.get().getPlayerData().getRespawnBuffer(player.getUUID());
             Game.LOG("Portal Respawn triggered");
             if (respawnPos != null) {
                 player.setRespawnPosition(respawnPos.dimension(), respawnPos.pos(), player.getRespawnAngle(), false,
@@ -58,13 +58,27 @@ public class PlayerRespawner {
         }
     }
 
-    public void playerDied(final ServerPlayer serverPlayer) {
+    private void trySetToEndRespawn(final ServerPlayer player) {
+        PlayerData playerData = Game.get().getPlayerData();
+        BlockPos endRespawnPosition = playerData.getEndRespawnPosition(player.getUUID());
+        if (endRespawnPosition != null) {
+            Game.LOG("Setting the player's position to end respawn");
+            player.setRespawnPosition(Level.OVERWORLD, endRespawnPosition, player.getRespawnAngle(), true ,false);
+        }
+        else
+            Game.LOG("No End respawn position set");
+    }
+
+    public void playerDied(final ServerPlayer player) {
         try {
-            savePlayerInventory(serverPlayer);
+            // Partial Keep Inventory
+            savePlayerInventory(player);
+            // If player is End Locked, respawn at the designated one in player data
+            trySetToEndRespawn(player);
 
             // Deduct from the game time if the serverPlayer is a runner
-            if (ManhuntGameRules.isTimeLimit() && Game.get().getPlayerData().isRunner(serverPlayer)) {
-                applyDeathPenalty(serverPlayer.getLevel());
+            if (ManhuntGameRules.isTimeLimit() && Game.get().getPlayerData().isRunner(player)) {
+                applyDeathPenalty(player.getLevel());
             }
         } catch (Exception ignored) {}
     }

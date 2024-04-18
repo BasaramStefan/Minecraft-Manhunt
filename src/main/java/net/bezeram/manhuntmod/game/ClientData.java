@@ -34,6 +34,9 @@ public class ClientData {
     public boolean isGameInSession() { return isGameInSession; }
     public void setGameSession(boolean session) { isGameInSession = session; }
 
+    public boolean isEndLocked() { return isEndLocked; }
+    public void setEndLocked(boolean value) { isEndLocked = value; }
+
     public void reset(boolean isGameInSession) {
         this.isGameInSession = isGameInSession;
         hunterCompass.reset();
@@ -44,6 +47,7 @@ public class ClientData {
     private final PortalRespawnPacket altRespawnPacket = new PortalRespawnPacket();
     private final ClientTimer timer = new ClientTimer();
     private boolean isGameInSession = false;
+    private boolean isEndLocked = false;
 
     public static class HunterCompass {
         public void reset() { targetX = 0; targetZ = 0; }

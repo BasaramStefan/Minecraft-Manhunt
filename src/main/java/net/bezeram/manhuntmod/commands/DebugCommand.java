@@ -3,11 +3,11 @@ package net.bezeram.manhuntmod.commands;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.events.ModEvents;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.Time;
+import net.bezeram.manhuntmod.game.players.EndLockLogic;
 import net.bezeram.manhuntmod.game.players.PlayerRespawner;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
 import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
@@ -22,14 +22,20 @@ import net.minecraft.core.GlobalPos;
 import net.minecraft.data.registries.VanillaRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Iterator;
 
 public class DebugCommand {
 	public DebugCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -190,6 +196,53 @@ public class DebugCommand {
 							player.displayClientMessage(Component.literal("Normal respawn: " + player.getRespawnPosition() + " in " + player.getRespawnDimension()), false);
 							return 0;
 				}))
+				.then(Commands.literal("LocateStronghold")
+						.executes((command) -> {
+							ServerPlayer player = command.getSource().getPlayer();
+							if (player == null)
+								return 1;
+
+							BlockPos blockPos = EndLockLogic.getStrongholdEntrancePosition(player);
+							if (blockPos != null)
+								player.displayClientMessage(Component.literal("Detected stronghold at: " + blockPos), false);
+							else
+								player.displayClientMessage(Component.literal("Could not find stronghold in radius 50"), false);
+							return 0;
+				}))
+				.then(Commands.literal("FindEndPortalFrame")
+						.then(Commands.argument("size", IntegerArgumentType.integer())
+								.executes((command) -> {
+									ServerPlayer player = command.getSource().getPlayer();
+									if (player == null)
+										return 1;
+
+									int inflatedSize = IntegerArgumentType.getInteger(command, "size");
+									BlockPos blockPos = EndLockLogic.getPortalFrameBlock(player, inflatedSize);
+
+									if (blockPos != null)
+										player.displayClientMessage(Component.literal("Detected portal frame at: " + blockPos),
+												false);
+									else
+										player.displayClientMessage(Component.literal("No portal frame with size " + inflatedSize),	false);
+									return 0;
+				})))
+				.then(Commands.literal("FindDiamondBlock")
+						.then(Commands.argument("size", IntegerArgumentType.integer())
+								.executes((command) -> {
+									ServerPlayer player = command.getSource().getPlayer();
+									if (player == null)
+										return 1;
+
+									int inflatedSize = IntegerArgumentType.getInteger(command, "size");
+									BlockPos blockPos = getDiamondBlock(player, player.getLevel(), inflatedSize);
+
+									if (blockPos != null)
+										player.displayClientMessage(Component.literal("Detected diamond block at: " + blockPos),
+												false);
+									else
+										player.displayClientMessage(Component.literal("No diamond block with size " + inflatedSize),	false);
+									return 0;
+				})))
 				.then(Commands.literal("PrintLastPlayerPositions")
 						.executes((command) -> {
 							ServerPlayer player = command.getSource().getPlayer();
@@ -197,9 +250,9 @@ public class DebugCommand {
 								return 1;
 
 							Vec3[] positions = new Vec3[]{
-								Game.get().getPlayerData().getCoords(DimensionID.OVERWORLD).get(player.getUUID()),
-								Game.get().getPlayerData().getCoords(DimensionID.NETHER).get(player.getUUID()),
-								Game.get().getPlayerData().getCoords(DimensionID.END).get(player.getUUID())
+								Game.get().getPlayerData().getLastPosition(DimensionID.OVERWORLD).get(player.getUUID()),
+								Game.get().getPlayerData().getLastPosition(DimensionID.NETHER).get(player.getUUID()),
+								Game.get().getPlayerData().getLastPosition(DimensionID.END).get(player.getUUID())
 							};
 
 							ItemStack itemStack0 = player.getInventory().getItem(0);
@@ -219,14 +272,19 @@ public class DebugCommand {
 								player.displayClientMessage(Component.literal(
 									"Item in slot 0 is not a hunter compass"), false);
 
-							player.displayClientMessage(Component.literal(
-									"(" + Math.round(positions[0].x) + ", " + Math.round(positions[0].y)
-											+ ", " + Math.round(positions[0].z) + ")    "
-											+ "(" + Math.round(positions[1].x) + ", " + Math.round(positions[1].y)
-											+ ", " + Math.round(positions[1].z) + ")    "
-											+ "(" + Math.round(positions[2].x) + ", " + Math.round(positions[2].y)
-											+ ", " + Math.round(positions[2].z) + ")"),
-									false);
+							DimensionID[] dimensionIDS = new DimensionID[] { DimensionID.OVERWORLD,
+									DimensionID.NETHER, DimensionID.END };
+							for (int i = 0; i < 3; i++) {
+								String out = "null";
+								String dimension = dimensionIDS[i].name() + ": ";
+								if (positions[i] != null) {
+									out = "(" + Math.round(positions[i].x) + ", " + Math.round(positions[i].y)
+											+ ", " + Math.round(positions[i].z);
+								}
+
+								player.displayClientMessage(Component.literal(dimension + out), false);
+							}
+
 							return 0;
 				}))
 				.then(Commands.literal("GetCompassTags")
@@ -313,5 +371,26 @@ public class DebugCommand {
 		}
 
 		return output;
+	}
+
+	public static BlockPos getDiamondBlock(final Player player, final ServerLevel level, int inflateSize) {
+
+		// Check for stone brick stairs around the player's hitbox
+		AABB boundingBox = player.getBoundingBox().inflate(inflateSize);
+		Iterator<BlockPos> iter = BlockPos.betweenClosed(
+				(int)boundingBox.minX, (int)boundingBox.minY, (int)boundingBox.minZ,
+				(int)boundingBox.maxX, (int)boundingBox.maxY, (int)boundingBox.maxZ).iterator();
+
+		Game.LOG("Searching for end portal frame for player: " + player.getName().getString());
+		while (iter.hasNext()) {
+			BlockPos blockPos = iter.next();
+			Game.LOG("Checking blockPos: X=" + blockPos.getX() + " Y=" + blockPos.getY() + " Z=" + blockPos.getZ());
+
+			Block block = level.getBlockState(blockPos).getBlock();
+			if (block == Blocks.DIAMOND_BLOCK)
+				return blockPos;
+		}
+
+		return null;
 	}
 }

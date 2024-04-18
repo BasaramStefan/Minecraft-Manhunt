@@ -5,22 +5,23 @@ import net.bezeram.manhuntmod.commands.*;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.ManhuntGameRules;
 import net.bezeram.manhuntmod.game.Time;
+import net.bezeram.manhuntmod.game.players.EndLockLogic;
 import net.bezeram.manhuntmod.game.players.PlayerRespawner;
 import net.bezeram.manhuntmod.item.DeathSafeItems;
-import net.bezeram.manhuntmod.networking.ModMessages;
-import net.bezeram.manhuntmod.networking.packets.UpdatePortalRespawnS2CPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -31,6 +32,11 @@ import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.server.command.ConfigCommand;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
 
 @Mod.EventBusSubscriber(modid = ManhuntMod.MOD_ID)
 public class ModEvents {
@@ -138,6 +144,7 @@ public class ModEvents {
 				return;
 			}
 
+			isSilverfishSpawner(event.getState());
 			if (!ManhuntGameRules.canBreakSpawners() && isSpawnerBlock(event)) {
 				event.setCanceled(true);
 				event.getPlayer().displayClientMessage(
@@ -147,6 +154,14 @@ public class ModEvents {
 
 		private static boolean isSpawnerBlock(BlockEvent.BreakEvent event) {
 			return event.getState().getBlock() == Blocks.SPAWNER;
+		}
+
+		private static boolean isSilverfishSpawner(final BlockState blockState) {
+			for (var property : blockState.getProperties()) {
+				Game.LOG(property.toString());
+			}
+
+			return false;
 		}
 
 		@SubscribeEvent
@@ -165,10 +180,9 @@ public class ModEvents {
 		}
 
 		@SubscribeEvent
-		// Save player's inventory in game class
-		// Destroy designated items in order to not drop them
+		// Execute custom player respawner
 		public static void onEntityDeath(final LivingDeathEvent event) {
-			if (event.getEntity().getLevel().isClientSide() || !Game.inSession())
+			if (!Game.inSession() || event.getEntity().getLevel().isClientSide)
 				return;
 
 			if (event.getEntity() instanceof EnderDragon) {
@@ -200,6 +214,22 @@ public class ModEvents {
 
 		@SubscribeEvent
 		public static void onPlayerChangeDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
+			if (!Game.inSession() || event.getEntity().getLevel().isClientSide)
+				return;
+
+			if (event.getTo() == Level.END) {
+				// End Lock
+				// The player is now respawn locked to the stronghold they entered.
+				// The spawn is automatically set and subsequently cannot be changed.
+				ServerPlayer player = (ServerPlayer)event.getEntity();
+				boolean isEndLocked = Game.get().getPlayerData().isEndLocked(player.getUUID());
+				if (!isEndLocked) {
+					Game.LOG("Setting player to End Locked: " + player.getName().getString());
+					EndLockLogic.calculateRespawnAndLock(player);
+				}
+				else
+					Game.LOG("Player: " + player.getName().getString() + " is already End Locked");
+			}
 		}
     }
 }

@@ -26,7 +26,8 @@ public class ClientEvents {
             Screen screen = event.getScreen();
             if (screen instanceof DeathScreen deathScreen) {
                 LocalPlayer player = Minecraft.getInstance().player;
-                if (player != null)
+                boolean isNotEndLocked = ClientData.get().isEndLocked();
+                if (player != null && isNotEndLocked)
                     event.setNewScreen(new ExtendedDeathScreen(deathScreen));
             }
         }
