@@ -19,6 +19,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Team;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 
 public class ManhuntCommand {
@@ -252,14 +253,20 @@ public class ManhuntCommand {
 			score++;
 		}
 
+		timer.setDisplayName(Component.literal("Manhunt").withStyle(ChatFormatting.GOLD));
 		if (ManhuntGameRules.isTimeLimit()) {
-			timer.setDisplayName(Component.literal("Manhunt").withStyle(ChatFormatting.GOLD));
+			PlayerTeam timerDisplay = scoreboard.addPlayerTeam("Timer");
+			scoreboard.removePlayerTeam(timerDisplay);
+			timerDisplay = scoreboard.addPlayerTeam("Timer");
 
+			timerDisplay.setColor(ChatFormatting.RED);
 			if (GameTimer.getGameTime().asMinutes() > 1) {
+				scoreboard.addPlayerToTeam("Minutes", timerDisplay);
 				scoreboard.getOrCreatePlayerScore("Minutes", timer).setScore(score);
 				scoreboard.resetPlayerScore("Seconds", timer);
 			}
 			else {
+				scoreboard.addPlayerToTeam("Seconds", timerDisplay);
 				scoreboard.getOrCreatePlayerScore("Seconds", timer).setScore(score);
 				scoreboard.resetPlayerScore("Minutes", timer);
 			}
@@ -268,7 +275,6 @@ public class ManhuntCommand {
 			// We only have teams on the scoreboard, might as well be labeled kills
 			scoreboard.resetPlayerScore("Seconds", timer);
 			scoreboard.resetPlayerScore("Minutes", timer);
-			timer.setDisplayName(Component.literal("Kills").withStyle(ChatFormatting.GOLD));
 		}
 
 		scoreboard.setDisplayObjective(1, scoreboard.getObjective("TimeLeft"));

@@ -7,10 +7,10 @@ import net.bezeram.manhuntmod.game.players.PlayerData;
 import net.bezeram.manhuntmod.networking.ModMessages;
 import net.bezeram.manhuntmod.networking.packets.UpdateGameStateS2CPacket;
 import net.bezeram.manhuntmod.networking.packets.UpdatePortalRespawnS2CPacket;
+import net.bezeram.manhuntmod.utils.MyUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -25,6 +25,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraftforge.event.TickEvent;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.List;
@@ -34,7 +35,7 @@ public class Game {
 
 	private Game(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList, MinecraftServer server) {
 		this.server = server;
-		prevState = currentState;
+		prevState = gameState;
 		ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
 
 		this.timer = new GameTimer();
@@ -44,13 +45,13 @@ public class Game {
 	public static void init(PlayerTeam teamRunner, PlayerTeam teamHunter, PlayerList playerList,
 	                        MinecraftServer server) {
 		INSTANCE = new Game(teamRunner, teamHunter, playerList, server);
-		currentState = GameState.START;
+		gameState = GameState.START;
 
 		INSTANCE.updateClient();
 	}
 
 	public static boolean inSession() {
-		return INSTANCE != null;
+		return INSTANCE != null && gameState != GameState.NULL;
 	}
 
 	private void updateClient() {
@@ -67,7 +68,7 @@ public class Game {
 	}
 
 	public static GameState getGameState() {
-		return currentState;
+		return gameState;
 	}
 
 	public static GameState getPrevGameState() {
@@ -75,20 +76,13 @@ public class Game {
 	}
 
 	public static void setGameState(GameState state) {
-		prevState = currentState;
-		currentState = state;
+		prevState = gameState;
+		gameState = state;
 	}
 
 	public void stopGame() {
-		ServerScoreboard scoreboard = server.getScoreboard();
-		Objective objective = scoreboard.getObjective("TimeLeft");
-		if (objective != null) {
-			scoreboard.resetPlayerScore("PAUSED", objective);
-			scoreboard.getOrCreatePlayerScore("STOPPED", objective);
-		}
 
-		currentState = GameState.NULL;
-		INSTANCE = null;
+		gameState = GameState.ERASE;
 	}
 
 	public MinecraftServer getServer() { return server; }
@@ -145,8 +139,8 @@ public class Game {
 		if (objective != null)
 			scoreboard.getOrCreatePlayerScore("PAUSED", objective);
 
-		prevState = currentState;
-		currentState = GameState.PAUSE;
+		prevState = gameState;
+		gameState = GameState.PAUSE;
 	}
 
 	public void resumeGame() {
@@ -155,18 +149,19 @@ public class Game {
 		assert objective != null;
 		scoreboard.resetPlayerScore("PAUSED", objective);
 
-		currentState = GameState.RESUME;
+		gameState = GameState.RESUME;
 	}
 
 	public void update(TickEvent.ServerTickEvent event) {
 		timer.updatePlayerPosition();
+		timer.updatePortalRespawnCheck();
 
 		if (timer.getPlayerPositionElapsed().asSeconds() > 0.1f) {
 			playerData.updateAllCoords();
 			timer.resetPlayerPositionTime();
 		}
 
-		switch (currentState) {
+		switch (gameState) {
 			case PAUSE -> {
 				lockPlayersPos();
 			}
@@ -176,7 +171,7 @@ public class Game {
 				lockPlayersPos();
 
 				if (timer.gameResumed()) {
-					currentState = prevState;
+					gameState = prevState;
 					PlayerList allPlayers = event.getServer().getPlayerList();
 					allPlayers.broadcastSystemMessage(Component
 									.literal("Game resumed").withStyle(ChatFormatting.DARK_GREEN), false);
@@ -229,8 +224,6 @@ public class Game {
 					if (timer.activeTimeHasEnded())
 						hunterHasWon();
 				}
-
-				timer.updatePortalRespawnCheck();
 			}
 			case END -> {
 				// Common end of game functionality
@@ -270,7 +263,14 @@ public class Game {
 			}
 			case ERASE -> {
 				ModEvents.ForgeEvents.SuddenDeathWarning.hasTriggered = false;
-				currentState = GameState.NULL;
+				ServerScoreboard scoreboard = server.getScoreboard();
+				Objective objective = scoreboard.getObjective("TimeLeft");
+				if (objective != null) {
+					scoreboard.resetPlayerScore("PAUSED", objective);
+					scoreboard.getOrCreatePlayerScore("STOPPED", objective);
+				}
+
+				gameState = GameState.NULL;
 				updateClient();
 			}
 		}
@@ -282,7 +282,7 @@ public class Game {
 	public ServerPlayer[] getRunnersArray() { return playerData.getRunners(); }
 
 	public static boolean isHunterAtGameState(Player player, GameState targetGameState) {
-		if (player.getTeam() == null || currentState != targetGameState || !Game.inSession())
+		if (player.getTeam() == null || gameState != targetGameState || !Game.inSession())
 			return false;
 
 		try {
@@ -299,7 +299,7 @@ public class Game {
 	}
 
 	public static boolean isRunnerAtGameState(Player player, GameState targetGameState) {
-		if (player.getTeam() == null || currentState != targetGameState)
+		if (player.getTeam() == null || gameState != targetGameState)
 			return false;
 
 		try {
@@ -384,83 +384,52 @@ public class Game {
 			Game.LOG("ERROR: Game display scoreboard has null objective");
 	}
 
-	public static boolean isPlayerInPortal(final ServerPlayer player) {
-		// Checking if player is inside a portal block.
-		// To precisely check if the player is inside a portal block
-		// the function must account for the player being slightly in between two blocks.
-		// Depending on the player's position, we check in a specific direction for portal blocks.
-		// For a lower fractional value (<0.2) we check in the negative direction.
-		// For a higher fractional value (>0.7) we check in the positive direction.
+	// Gets the block along one axis depending on the player's hitbox.
+	// Used to detect if the player is inside a portal block.
+	private static int getOffsetTowardsPortal(double pos) {
+		if (MyUtils.fractional(pos) <= 0.3)
+			return -1;
+		else if (MyUtils.fractional(pos) >= 0.7)
+			return 1;
+		return 0;
+	}
 
+	private static BlockPos selectPortalBlock(BlockState[] blockStates, BlockPos[] blockPos) {
+		if (blockStates[0].getBlock() == Blocks.NETHER_PORTAL)
+			return blockPos[0];
+		else if (blockStates[1].getBlock() == Blocks.NETHER_PORTAL)
+			return blockPos[1];
+		return null;
+	}
+
+	/**
+	 * Obtains the blocks corresponding to the direction a portal might be in.
+	 * Checking if player is inside a portal block.
+	 * To precisely check if the player is inside a portal block
+	 *  the function must account for the player being slightly in between two blocks.
+	 * Depending on the player's position, we check in a specific direction for portal blocks.
+	 * For a lower fractional value (<=0.3) we check in the negative direction.
+	 * For a higher fractional value (>=0.7) we check in the positive direction.
+	 * @param player Potential traveller
+	 * @return Returns the possible BlockPos where the portal is located
+	 */
+	private static BlockPos getBlockTowardsPortal(final ServerPlayer player) {
 		try {
-			// DEBUG
-			boolean hasShiftDown = player.isShiftKeyDown();
 
 			Vec3 pos = player.getPosition(1);
-			Vec3i targetDirectionX = null;
-			Vec3i targetDirectionZ = null;
-			if (pos.x - Math.floor(pos.x) <= 0.2)
-				targetDirectionX = new Vec3i(-1, 0 ,0);
-			else if (pos.x - Math.floor(pos.x) >= 0.7)
-				targetDirectionX = new Vec3i(1, 0, 0);
-			if (pos.z - Math.floor(pos.z) <= 0.2)
-				targetDirectionZ = new Vec3i(0, 0, -1);
-			else if (pos.z - Math.floor(pos.z) >= 0.7)
-				targetDirectionZ = new Vec3i(0, 0, 1);
+			int offsetX = getOffsetTowardsPortal(pos.x);
+			int offsetZ = getOffsetTowardsPortal(pos.z);
+			BlockPos targetBlockX = new BlockPos((int)pos.x + offsetX,  (int)pos.y, (int)pos.z);
+			BlockPos targetBlockZ = new BlockPos((int)pos.x,            (int)pos.y, (int)pos.z + offsetZ);
+			BlockPos[] blockPos = { targetBlockX, targetBlockZ };
+			BlockState[] blockStates = new BlockState[] {
+				player.getLevel().getBlockState(blockPos[0]),
+				player.getLevel().getBlockState(blockPos[1])
+			};
 
-			if (hasShiftDown) {
-				Game.LOG("[Player Portal Check]: DirectionX " + targetDirectionX);
-				Game.LOG("[Player Portal Check]: DirectionZ " + targetDirectionZ);
-			}
-
-			if (targetDirectionX == null && targetDirectionZ == null) {
-				// Player is only in portal if standing fully inside
-				BlockPos blockPos = player.getOnPos().above();
-				BlockState blockState = player.getLevel().getBlockState(blockPos);
-
-				if (hasShiftDown)
-					Game.LOG("[Player Portal Check]: Checking player "
-							+ player.getName().getString() + " in full block - returns " + (blockState.getBlock() == Blocks.NETHER_PORTAL));
-
-				return blockState.getBlock() == Blocks.NETHER_PORTAL;
-			}
-
-			BlockPos targetBlockX = null;
-			if (targetDirectionX != null)
-				targetBlockX = new BlockPos((int)pos.x + targetDirectionX.getX(),
-						(int)pos.y + targetDirectionX.getY(),
-						(int)pos.z + targetDirectionX.getZ());
-
-			BlockPos targetBlockZ = null;
-			if (targetDirectionZ != null)
-				targetBlockZ = new BlockPos((int)pos.x + targetDirectionZ.getX(),
-						(int)pos.y + targetDirectionZ.getY(),
-						(int)pos.z + targetDirectionZ.getZ());
-
-			BlockState targetBlockStateX = null;
-			if (targetBlockX != null)
-				targetBlockStateX = player.getLevel().getBlockState(targetBlockX);
-			BlockState targetBlockStateZ = null;
-			if (targetBlockZ != null)
-				targetBlockStateZ = player.getLevel().getBlockState(targetBlockZ);
-
-			boolean isPortalX = (targetBlockStateX != null
-					&& targetBlockStateX.getBlock() == Blocks.NETHER_PORTAL);
-			boolean isPortalZ = (targetBlockStateZ != null
-					&& targetBlockStateZ.getBlock() == Blocks.NETHER_PORTAL);
-			boolean detectedPortal = isPortalX || isPortalZ;
-
-			if (hasShiftDown)
-				Game.LOG("[Player Portal Check]: Checking player "+ player.getName().getString()
-						+ " in with target block "
-						+ ((targetBlockStateX != null) ? targetBlockStateX.getBlock().getName().getString() : "")
-						+ " and "
-						+ ((targetBlockStateZ != null) ? targetBlockStateZ.getBlock().getName().getString() : "")
-						+ " - returns " + detectedPortal);
-
-			return detectedPortal;
+			return selectPortalBlock(blockStates, blockPos);
 		} catch (Exception ignored) {
-			return false;
+			return null;
 		}
 	}
 
@@ -469,21 +438,21 @@ public class Game {
 		for (int i = 0; i < playerData.getPlayers().length; i++) {
 			try {
 				ServerPlayer player = playerData.getPlayers()[i];
-				if (isPlayerInPortal(player)) {
-					Game.LOG("Detected player in nether portal: " + player.getDisplayName());
-					tryUpdatePortalCoords(player);
+				BlockPos blockPos = getBlockTowardsPortal(player);
+				if (blockPos != null) {
+					updatePortalCoords(player, blockPos);
 
 					// Players in a Nether Portal are safeguarded whilst in the portal
-					if (currentState != GameState.PAUSE && currentState != GameState.RESUME) {
+					if (gameState != GameState.PAUSE && gameState != GameState.RESUME) {
 						if (!player.isInvulnerable())
-							Game.LOG("Setting player invulnerable: " + player.getDisplayName());
+							Game.LOG("[PortalCheck] Setting player invulnerable: " + player.getName().getString());
 
 						player.setInvulnerable(true);
 					}
 				}
-				else if (currentState != GameState.PAUSE && currentState != GameState.RESUME) {
+				else if (gameState != GameState.PAUSE && gameState != GameState.RESUME) {
 					if (player.isInvulnerable())
-						Game.LOG("Setting player NOT invulnerable: " + player.getName());
+						Game.LOG("[PortalCheck] Setting player NOT invulnerable: " + player.getName().getString());
 
 					player.setInvulnerable(false);
 				}
@@ -491,17 +460,14 @@ public class Game {
 		}
 	}
 
-	public void tryUpdatePortalCoords(final ServerPlayer player) {
+	public void updatePortalCoords(@NotNull final ServerPlayer player, @NotNull BlockPos portalCoords) {
 		if (timer.portalRespawnCheck()) {
 			timer.resetPortalRespawnCheck();
 
 			try {
-				Game.get().getPlayerData().updatePortal(player.getUUID(), player.getOnPos().above());
-				BlockPos portalCoords = player.getOnPos().above();
+				Game.get().getPlayerData().updatePortal(player.getUUID(), portalCoords);
 
-				// Send packet to client
 				ModMessages.sendToPlayer(new UpdatePortalRespawnS2CPacket(portalCoords), player);
-
 			} catch (Exception ignored) {}
 		}
 	}
@@ -510,7 +476,7 @@ public class Game {
 		NULL, START, HEADSTART, ONGOING, END, RESUME, PAUSE, ERASE
 	}
 
-	private static GameState currentState = GameState.NULL;
+	private static GameState gameState = GameState.NULL;
 	private static GameState prevState = GameState.NULL;
 	private boolean runnerWins = true;
 
@@ -549,4 +515,6 @@ public class Game {
 	private final GameTimer timer;
 
 	private final MinecraftServer server;
+
+
 }

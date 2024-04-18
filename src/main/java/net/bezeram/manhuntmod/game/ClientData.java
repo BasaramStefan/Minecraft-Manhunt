@@ -41,7 +41,7 @@ public class ClientData {
     }
 
     private final HunterCompass hunterCompass = new HunterCompass();
-    private final AltRespawnPacket altRespawnPacket = new AltRespawnPacket();
+    private final PortalRespawnPacket altRespawnPacket = new PortalRespawnPacket();
     private final ClientTimer timer = new ClientTimer();
     private boolean isGameInSession = false;
 
@@ -50,12 +50,22 @@ public class ClientData {
 
         public int targetX = 0;
         public int targetZ = 0;
+
+        @Override
+        public String toString() {
+            return targetX + " " + targetZ;
+        }
     }
 
-    public static class AltRespawnPacket {
+    public static class PortalRespawnPacket {
         public void reset() { coords = null; respawnPointChangeAcknowledged = false; }
 
         public BlockPos coords = null;
         public boolean respawnPointChangeAcknowledged = false;
+
+        @Override
+        public String toString() {
+            return coords + " Portal Respawn " + (respawnPointChangeAcknowledged ? "Acknowledged" : "NOT Acknowledged");
+        }
     }
 }

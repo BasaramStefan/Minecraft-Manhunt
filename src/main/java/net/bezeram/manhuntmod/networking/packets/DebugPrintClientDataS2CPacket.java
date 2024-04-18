@@ -32,10 +32,11 @@ public class DebugPrintClientDataS2CPacket {
             BlockPos portalRespawnCoords = ClientData.get().getPortalRespawnCoords();
             boolean isGameInSession = ClientData.get().isGameInSession();
 
-            player.displayClientMessage(Component.literal("[Hunter Compass]: Target Player coords: "
-                    + "X = " + compassData.targetX + "  Z = " + compassData.targetZ
-                    + "[Portal Respawn]: X = " + portalRespawnCoords.getX() + "  Z = " + portalRespawnCoords.getZ()
-                    + "[GameState]: " + ((isGameInSession) ? "active" : "inactive")
+            player.displayClientMessage(Component.literal("[Hunter Compass]: "
+                    + "Target Player coords: " + "(X, Z) = " + compassData.toString()
+                    + " [Portal Respawn]: " + ((portalRespawnCoords != null) ?
+                    ("(X, Z) = (" + portalRespawnCoords.getX() + ", " + portalRespawnCoords.getZ() + ")") : "NULL")
+                    + " [GameState]: " + ((isGameInSession) ? "active" : "inactive")
             ), false);
         }));
         context.setPacketHandled(true);
