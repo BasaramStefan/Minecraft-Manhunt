@@ -5,152 +5,54 @@ import net.minecraft.world.item.Items;
 
 import java.util.Hashtable;
 
+/**
+ * Items are stored in 2 categories. Normal items, with an associated integer count, and exceptions.<br>
+ * For every item, the count describes if any amount should be dropped by a player if they are killed by another
+ * player.<br>
+ * Exceptions are items that get replaced by another item when dropped. For example, a lava bucket will drop a bucket.
+ */
 public class DeathSafeItems {
+	private final static int ARROW_DROP_COUNT = 32;
 	private final static Hashtable<Item, Integer> items = new Hashtable<>();
 	private final static Hashtable<Item, Item> exceptions = new Hashtable<>();
 
-	public static void registerItems()
-	{
+	public static void registerDefault() {
+		Item[] safe = new Item[]{
 			// Wooden tools
-			items.put(Items.WOODEN_AXE, 0);
-			items.put(Items.WOODEN_HOE, 0);
-			items.put(Items.WOODEN_PICKAXE, 0);
-			items.put(Items.WOODEN_SHOVEL, 0);
-			items.put(Items.WOODEN_SWORD, 0);
-
+			Items.WOODEN_AXE, Items.WOODEN_HOE, Items.WOODEN_PICKAXE, Items.WOODEN_SHOVEL, Items.WOODEN_SWORD,
 			// Stone tools
-			items.put(Items.STONE_AXE, 0);
-			items.put(Items.STONE_HOE, 0);
-			items.put(Items.STONE_PICKAXE, 0);
-			items.put(Items.STONE_SHOVEL, 0);
-			items.put(Items.STONE_SWORD, 0);
-
+			Items.STONE_AXE, Items.STONE_HOE, Items.STONE_PICKAXE, Items.STONE_SHOVEL, Items.STONE_SWORD,
 			// Golden tools
-			items.put(Items.GOLDEN_AXE, 0);
-			items.put(Items.GOLDEN_HOE, 0);
-			items.put(Items.GOLDEN_PICKAXE, 0);
-			items.put(Items.GOLDEN_SHOVEL, 0);
-			items.put(Items.GOLDEN_SWORD, 0);
-
+			Items.GOLDEN_AXE, Items.GOLDEN_HOE, Items.GOLDEN_PICKAXE, Items.GOLDEN_SHOVEL, Items.GOLDEN_SWORD,
 			// Iron tools
-			items.put(Items.IRON_AXE, 0);
-			items.put(Items.IRON_HOE, 0);
-			items.put(Items.IRON_PICKAXE, 0);
-			items.put(Items.IRON_SHOVEL, 0);
-			items.put(Items.IRON_SWORD, 0);
-
+			Items.IRON_AXE, Items.IRON_HOE, Items.IRON_PICKAXE, Items.IRON_SHOVEL, Items.IRON_SWORD,
 			// Diamond tools
-			items.put(Items.DIAMOND_AXE, 0);
-			items.put(Items.DIAMOND_HOE, 0);
-			items.put(Items.DIAMOND_PICKAXE, 0);
-			items.put(Items.DIAMOND_SHOVEL, 0);
-			items.put(Items.DIAMOND_SWORD, 0);
-
+			Items.DIAMOND_AXE, Items.DIAMOND_HOE, Items.DIAMOND_PICKAXE, Items.DIAMOND_SHOVEL, Items.DIAMOND_SWORD,
 			// Netherite tools
-			items.put(Items.NETHERITE_AXE, 0);
-			items.put(Items.NETHERITE_HOE, 0);
-			items.put(Items.NETHERITE_PICKAXE, 0);
-			items.put(Items.NETHERITE_SHOVEL, 0);
-			items.put(Items.NETHERITE_SWORD, 0);
-
+			Items.NETHERITE_AXE, Items.NETHERITE_HOE, Items.NETHERITE_PICKAXE, Items.NETHERITE_SHOVEL, Items.NETHERITE_SWORD,
 			// Leather armour
-			items.put(Items.LEATHER_HELMET, 0);
-			items.put(Items.LEATHER_CHESTPLATE, 0);
-			items.put(Items.LEATHER_LEGGINGS, 0);
-			items.put(Items.LEATHER_BOOTS, 0);
-
+			Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS,
 			// Chainmail armour
-			items.put(Items.CHAINMAIL_HELMET, 0);
-			items.put(Items.CHAINMAIL_CHESTPLATE, 0);
-			items.put(Items.CHAINMAIL_LEGGINGS, 0);
-			items.put(Items.CHAINMAIL_BOOTS, 0);
-
+			Items.CHAINMAIL_HELMET, Items.CHAINMAIL_CHESTPLATE, Items.CHAINMAIL_LEGGINGS, Items.CHAINMAIL_BOOTS,
 			// Golden armour
-			items.put(Items.GOLDEN_HELMET, 0);
-			items.put(Items.GOLDEN_CHESTPLATE, 0);
-			items.put(Items.GOLDEN_LEGGINGS, 0);
-			items.put(Items.GOLDEN_BOOTS, 0);
-
+			Items.GOLDEN_HELMET, Items.GOLDEN_CHESTPLATE, Items.GOLDEN_LEGGINGS, Items.GOLDEN_BOOTS,
 			// Iron armour
-			items.put(Items.IRON_HELMET, 0);
-			items.put(Items.IRON_CHESTPLATE, 0);
-			items.put(Items.IRON_LEGGINGS, 0);
-			items.put(Items.IRON_BOOTS, 0);
-
+			Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS,
 			// Diamond armour
-			items.put(Items.DIAMOND_HELMET, 0);
-			items.put(Items.DIAMOND_CHESTPLATE, 0);
-			items.put(Items.DIAMOND_LEGGINGS, 0);
-			items.put(Items.DIAMOND_BOOTS, 0);
-
+			Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS,
 			// Netherite armour
-			items.put(Items.NETHERITE_HELMET, 0);
-			items.put(Items.NETHERITE_CHESTPLATE, 0);
-			items.put(Items.NETHERITE_LEGGINGS, 0);
-			items.put(Items.NETHERITE_BOOTS, 0);
+			Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS,
+			// Misc tools
+			ModItems.HUNTER_COMPASS.get(), Items.SHIELD, Items.BUCKET, Items.WATER_BUCKET, Items.POWDER_SNOW_BUCKET,
+			Items.BOW, Items.CROSSBOW, Items.TRIDENT, Items.POTION, Items.ARROW, Items.SPECTRAL_ARROW
+		};
 
-			// Boats
-			items.put(Items.OAK_BOAT, 0);
-			items.put(Items.BIRCH_BOAT, 0);
-			items.put(Items.SPRUCE_BOAT, 0);
-			items.put(Items.ACACIA_BOAT, 0);
-			items.put(Items.DARK_OAK_BOAT, 0);
-			items.put(Items.JUNGLE_BOAT, 0);
-			items.put(Items.CHERRY_BOAT, 0);
-			items.put(Items.MANGROVE_BOAT, 0);
+		for (Item item : safe) {
+			items.put(item, 0);
+		}
 
-			// Chest boats
-			items.put(Items.OAK_CHEST_BOAT, 0);
-			items.put(Items.BIRCH_CHEST_BOAT, 0);
-			items.put(Items.SPRUCE_CHEST_BOAT, 0);
-			items.put(Items.ACACIA_CHEST_BOAT, 0);
-			items.put(Items.DARK_OAK_CHEST_BOAT, 0);
-			items.put(Items.JUNGLE_CHEST_BOAT, 0);
-			items.put(Items.CHERRY_CHEST_BOAT, 0);
-			items.put(Items.MANGROVE_CHEST_BOAT, 0);
-
-			// General tools
-			items.put(Items.SHIELD, 0);
-			items.put(Items.FISHING_ROD, 0);
-			items.put(Items.FLINT_AND_STEEL, 0);
-			items.put(Items.BUCKET, 0);
-			items.put(Items.WATER_BUCKET, 0);
-			items.put(Items.POWDER_SNOW_BUCKET, 0);
-			items.put(Items.BOW, 0);
-			items.put(Items.CROSSBOW, 0);
-			items.put(Items.LEAD, 0);
-			items.put(Items.TRIDENT, 0);
-			items.put(Items.ARROW, 0);
-			items.put(Items.SPECTRAL_ARROW, 0);
-			items.put(Items.POTION, 0);
-			items.put(Items.ANVIL, 0);
-			items.put(Items.CHIPPED_ANVIL, 0);
-			items.put(Items.DAMAGED_ANVIL, 0);
-			items.put(Items.ENCHANTING_TABLE, 0);
-			items.put(Items.GOLDEN_APPLE, 0);
-			items.put(Items.SLIME_BLOCK, 0);
-
-			// Beds and anchor
-			items.put(Items.RESPAWN_ANCHOR, 0);
-			items.put(Items.GLOWSTONE_DUST, 0);
-			items.put(Items.GLOWSTONE, 0);
-			items.put(Items.WHITE_BED, 0);
-			items.put(Items.LIGHT_GRAY_BED, 0);
-			items.put(Items.GRAY_BED, 0);
-			items.put(Items.BLACK_BED, 0);
-			items.put(Items.BROWN_BED, 0);
-			items.put(Items.RED_BED, 0);
-			items.put(Items.ORANGE_BED, 0);
-			items.put(Items.YELLOW_BED, 0);
-			items.put(Items.LIME_BED, 0);
-			items.put(Items.GREEN_BED, 0);
-			items.put(Items.CYAN_BED, 0);
-			items.put(Items.LIGHT_BLUE_BED, 0);
-			items.put(Items.BLUE_BED, 0);
-			items.put(Items.PURPLE_BED, 0);
-			items.put(Items.PINK_BED, 0);
-			items.put(Items.MAGENTA_BED, 0);
-	};
+		registerExceptions();
+	}
 
 	public static void registerExceptions() {
 		exceptions.put(Items.LAVA_BUCKET, Items.BUCKET);

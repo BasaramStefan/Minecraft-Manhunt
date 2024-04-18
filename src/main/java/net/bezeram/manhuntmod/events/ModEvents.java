@@ -13,15 +13,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -33,11 +30,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.server.command.ConfigCommand;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.Properties;
-
 @Mod.EventBusSubscriber(modid = ManhuntMod.MOD_ID)
 public class ModEvents {
 
@@ -48,7 +40,7 @@ public class ModEvents {
 		new ManhuntRulesCommand(event.getDispatcher());
 		new DebugCommand(event.getDispatcher());
 
-		DeathSafeItems.registerItems();
+		DeathSafeItems.registerDefault();
 		DeathSafeItems.registerExceptions();
 
 		ManhuntGameRules.BAN_ENCHANTMENTS.toggleDefaultOptions(true);
