@@ -220,15 +220,4 @@ public class HunterCompassItem extends Item {
 	public boolean isFoil(final ItemStack itemStack) {
 		return isCompassTracking(itemStack.getOrCreateTag());
 	}
-
-	public static void removeTags(final Level level, final CompoundTag tag) {
-		if (level.isClientSide || Game.inSession())
-			return;
-
-		// If game has ended, remove the compass tags
-		if (tag.contains(TAG_TARGET_PLAYER))
-			tag.remove(TAG_TARGET_PLAYER);
-		if (tag.contains(TAG_TARGET_TRACKING))
-			tag.remove(TAG_TARGET_TRACKING);
-	}
 }
