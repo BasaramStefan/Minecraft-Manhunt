@@ -136,8 +136,7 @@ public class HunterCompassItem extends Item {
 	 * @param target targeted player
 	 * @return coordinates along with compass dimension
 	 */
-	public static BlockPos getPlayerPosition(boolean isTracking, ServerLevel compassLevel,
-	                                          final ServerPlayer target) {
+	public static BlockPos getPlayerPosition(boolean isTracking, ServerLevel compassLevel, final ServerPlayer target) {
 		// Live coords
 		try {
 			if (isTracking) {
@@ -157,7 +156,9 @@ public class HunterCompassItem extends Item {
 
 	@Override
 	@ParametersAreNonnullByDefault
-	public boolean isFoil(ItemStack itemStack) { return isCompassTracking(itemStack.getOrCreateTag());}
+	public boolean isFoil(final ItemStack itemStack) {
+		return isCompassTracking(itemStack.getOrCreateTag()) || super.isFoil(itemStack);
+	}
 
 	public static void removeTags(final Level level, final CompoundTag tag) {
 		if (level.isClientSide || Game.inSession())

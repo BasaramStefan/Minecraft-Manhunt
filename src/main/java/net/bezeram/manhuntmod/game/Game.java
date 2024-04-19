@@ -56,7 +56,8 @@ public class Game {
 
 	private void updateClient() {
 		for (ServerPlayer player : playerData.getPlayers())
-			ModMessages.sendToPlayer(new UpdateGameStateS2CPacket(inSession()), player);
+			ModMessages.sendToPlayer(
+					new UpdateGameStateS2CPacket(inSession(), playerData.isEndLocked(player.getUUID())), player);
 	}
 
 	public static Game get() {
@@ -81,7 +82,6 @@ public class Game {
 	}
 
 	public void stopGame() {
-
 		gameState = GameState.ERASE;
 	}
 

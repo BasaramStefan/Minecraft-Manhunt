@@ -50,7 +50,7 @@ public class ClientData {
     private boolean isEndLocked = false;
 
     public static class HunterCompass {
-        public void reset() { targetX = 0; targetZ = 0; }
+        public void reset() { targetX = Integer.MAX_VALUE; targetZ = Integer.MAX_VALUE; }
 
         public int targetX = 0;
         public int targetZ = 0;

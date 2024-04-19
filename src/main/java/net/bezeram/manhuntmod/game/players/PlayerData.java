@@ -3,6 +3,8 @@ package net.bezeram.manhuntmod.game.players;
 import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.GameTimer;
+import net.bezeram.manhuntmod.networking.ModMessages;
+import net.bezeram.manhuntmod.networking.packets.UpdateGameStateS2CPacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.resources.ResourceKey;
@@ -245,6 +247,7 @@ public class PlayerData {
             }
 
             endRespawnPositions.put(uuid, respawnPos);
+            ModMessages.sendToPlayer(new UpdateGameStateS2CPacket(Game.inSession(), true), Game.get().getPlayer(uuid));
             Game.LOG("Locked End Respawn for player " + Game.get().getPlayer(uuid).getName().getString() +
                     "at" + respawnPos + " successfully");
         } catch (Exception ignored) {}

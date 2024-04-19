@@ -12,14 +12,17 @@ public class UpdateGameStateS2CPacket {
 
     public UpdateGameStateS2CPacket(FriendlyByteBuf buff) {
         this.inSession = buff.readBoolean();
+        this.isEndLocked = buff.readBoolean();
     }
 
-    public UpdateGameStateS2CPacket(boolean inSession) {
+    public UpdateGameStateS2CPacket(boolean inSession, boolean isEndLocked) {
         this.inSession = inSession;
+        this.isEndLocked = isEndLocked;
     }
 
     public void toBytes(FriendlyByteBuf buff) {
         buff.writeBoolean(inSession);
+        buff.writeBoolean(isEndLocked);
     }
 
     public static void handle(final UpdateGameStateS2CPacket message, Supplier<NetworkEvent.Context> supplier) {
@@ -28,15 +31,16 @@ public class UpdateGameStateS2CPacket {
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
                 // CLIENT SIDE
 
-                // If the game shuts down, reset client data
+                // If the game state changes, reset client data
                 if (ClientData.get().isGameInSession() != message.inSession)
                     ClientData.get().reset(message.inSession);
                 else
-                    ClientData.get().setGameSession(message.inSession);
+                    ClientData.get().setEndLocked(message.isEndLocked);
             });
         });
         context.setPacketHandled(true);
     }
 
     private final boolean inSession;
+    private final boolean isEndLocked;
 }
