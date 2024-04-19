@@ -103,6 +103,8 @@ public class HunterCompassItem extends Item {
 	public @NotNull InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand interactionHand) {
 		ItemStack itemUsed = player.getItemInHand(interactionHand);
 		if (!level.isClientSide) {
+			// On the server, cycle the next target player by changing the compass tag value
+			// If the game is not in session, display a client message
 			HunterCompassItem.addOrUpdateTags(level, itemUsed.getOrCreateTag());
 			CompassArray compassArray = Game.get().getPlayerData().getPlayerArray();
 			HandleUseResult result = handleUse(itemUsed, compassArray, (ServerPlayer) player);
@@ -126,6 +128,8 @@ public class HunterCompassItem extends Item {
 	public void inventoryTick(ItemStack itemStack, Level level, Entity entity, int itemSlot, boolean isSelected) {
 		if (level.isClientSide())
 			return;
+		// Check if the target player has left / entered the current dimension of the compass owner (entity)
+		// If a difference is noted, play a sound on client side
 
 		boolean prevValue = itemStack.getOrCreateTag().getBoolean(TAG_TARGET_TRACKING);
 		addOrUpdateTags(level, itemStack.getTag());
