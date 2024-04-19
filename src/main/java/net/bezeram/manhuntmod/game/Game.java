@@ -7,7 +7,7 @@ import net.bezeram.manhuntmod.game.players.PlayerData;
 import net.bezeram.manhuntmod.networking.ModMessages;
 import net.bezeram.manhuntmod.networking.packets.UpdateGameStateS2CPacket;
 import net.bezeram.manhuntmod.networking.packets.UpdatePortalRespawnS2CPacket;
-import net.bezeram.manhuntmod.utils.MyUtils;
+import net.bezeram.manhuntmod.utils.MHUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
@@ -156,7 +156,7 @@ public class Game {
 		timer.updatePlayerPosition();
 		timer.updatePortalRespawnCheck();
 
-		if (timer.getPlayerPositionElapsed().asSeconds() > 0.1f) {
+		if (timer.getPlayerPositionElapsed().asSeconds() > 2.f) {
 			playerData.updateAllCoords();
 			timer.resetPlayerPositionTime();
 		}
@@ -387,9 +387,9 @@ public class Game {
 	// Gets the block along one axis depending on the player's hitbox.
 	// Used to detect if the player is inside a portal block.
 	private static int getOffsetTowardsPortal(double pos) {
-		if (MyUtils.fractional(pos) <= 0.3)
+		if (MHUtils.fractional(pos) <= 0.3)
 			return -1;
-		else if (MyUtils.fractional(pos) >= 0.7)
+		else if (MHUtils.fractional(pos) >= 0.7)
 			return 1;
 		return 0;
 	}

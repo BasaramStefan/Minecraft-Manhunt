@@ -3,12 +3,12 @@ package net.bezeram.manhuntmod.item.custom;
 import net.bezeram.manhuntmod.enums.DimensionID;
 import net.bezeram.manhuntmod.game.Game;
 import net.bezeram.manhuntmod.game.players.CompassArray;
-import net.bezeram.manhuntmod.networking.ModMessages;
-import net.bezeram.manhuntmod.networking.packets.HunterCompassUseC2SPacket;
-import net.minecraft.client.gui.screens.Screen;
+import net.bezeram.manhuntmod.utils.MHUtils;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -42,6 +42,10 @@ public class HunterCompassItem extends Item {
 	 */
 	public static final String TAG_TARGET_TRACKING = "TargetTracked";
 
+	private enum HandleUseResult {
+		SUCCESS, FAIL, NO_GAME
+	};
+
 	public HunterCompassItem(final Properties properties) {
 		super(properties);
 	}
@@ -50,18 +54,71 @@ public class HunterCompassItem extends Item {
 		return tag != null && tag.contains(TAG_TARGET_TRACKING) && tag.getBoolean(TAG_TARGET_TRACKING);
 	}
 
+	/**
+	 * Cycles the player's in the currently selected team, or selects the first player in the opposite team
+	 * if the player holds shift.<br>
+	 * Current implementation assumes only the hunters get to use the compass.
+	 * @param itemUsed Compass
+	 * @param compassArray Compass Array
+	 * @param player Compass owner
+	 * @return Returns false if the game is not in session or if the owner is solo in their team.
+	 */
+	private static HandleUseResult handleUse(final ItemStack itemUsed, CompassArray compassArray, ServerPlayer player) {
+		boolean shiftPressed = player.isShiftKeyDown();
+		CompoundTag tag = itemUsed.getOrCreateTag();
+		int MAID = tag.getInt(HunterCompassItem.TAG_TARGET_PLAYER);
+
+		ServerPlayer newTarget;
+        int newID;
+        if (!shiftPressed) {
+			// Toggling to runner
+            newID = compassArray.cycleRunners(MAID);
+        }
+		else {
+			// Toggling to hunter
+            newID = compassArray.cycleHunters(MAID);
+			// check if the player cycled to is the same player using the compass
+			if (compassArray.samePlayer(player, newID)) {
+				if (compassArray.getHunterCount() == 1) {
+					// Only one hunter in the team -> cancel use
+					return HandleUseResult.FAIL;
+				}
+
+				// Cycle again
+				newID = compassArray.cycleHunters(newID);
+			}
+
+        }
+
+        tag.putInt(HunterCompassItem.TAG_TARGET_PLAYER, newID);
+		// Update compass hover name to the one tracked
+        newTarget = compassArray.getPlayer(newID);
+        String newTargetName = (newTarget == null) ? "NULL" : newTarget.getName().getString();
+		itemUsed.setHoverName(Component.literal("Tracking " + newTargetName));
+		return (newTarget != null) ? HandleUseResult.SUCCESS : HandleUseResult.NO_GAME;
+	}
+
 	@Override
 	@ParametersAreNonnullByDefault
 	public @NotNull InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand interactionHand) {
 		ItemStack itemUsed = player.getItemInHand(interactionHand);
-		if (level.isClientSide) {
-			boolean shiftPressed = Screen.hasShiftDown();
-			boolean mainHand = interactionHand == InteractionHand.MAIN_HAND;
-			ModMessages.sendToServer(new HunterCompassUseC2SPacket(shiftPressed, mainHand));
-			return InteractionResultHolder.success(itemUsed);
+		if (!level.isClientSide) {
+			HunterCompassItem.addOrUpdateTags(level, itemUsed.getOrCreateTag());
+			CompassArray compassArray = Game.get().getPlayerData().getPlayerArray();
+			HandleUseResult result = handleUse(itemUsed, compassArray, (ServerPlayer) player);
+
+			if (result == HandleUseResult.NO_GAME)
+				MHUtils.displaySimpleClientMessage(player, "No game in session", ChatFormatting.RED, true);
+
+			return switch(result) {
+				case SUCCESS -> InteractionResultHolder.sidedSuccess(itemUsed, false);
+				case FAIL, NO_GAME -> InteractionResultHolder.fail(itemUsed);
+            };
 		}
 
-		return InteractionResultHolder.fail(itemUsed);
+		SoundEvent lodestoneCompass = SoundEvents.LODESTONE_COMPASS_LOCK;
+		level.playSound(player, player.blockPosition(), lodestoneCompass, SoundSource.PLAYERS, 1.0F, 1.0F);
+		return InteractionResultHolder.sidedSuccess(itemUsed, true);
 	}
 
 	@Override
@@ -75,8 +132,7 @@ public class HunterCompassItem extends Item {
 		boolean currentValue = itemStack.getOrCreateTag().getBoolean(TAG_TARGET_TRACKING);
 		if (prevValue != currentValue) {
 			SoundEvent sound = (currentValue) ?  SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE;
-			BlockPos soundPos = new BlockPos(entity.getBlockX(), entity.getBlockY(), entity.getBlockZ());
-			level.playSound(null, soundPos, sound, SoundSource.PLAYERS, 1.f, 1.f);
+			level.playSound(entity, entity.blockPosition(), sound, SoundSource.PLAYERS, 1.f, 1.f);
 		}
 	}
 
@@ -110,7 +166,7 @@ public class HunterCompassItem extends Item {
 	 * @param tag compass tags
 	 * @return coords with a dimension
 	 */
-	public static @Nullable GlobalPos getPlayerPosition(final ServerLevel compassLevel, final CompoundTag tag) {
+	public static @Nullable GlobalPos getBlockPlayerPosition(final ServerLevel compassLevel, final CompoundTag tag) {
 		if (!Game.inSession()) {
 			return null;
 		}
@@ -120,7 +176,7 @@ public class HunterCompassItem extends Item {
 
 		try {
 			ServerPlayer target = Game.get().getPlayer(MAID);
-			BlockPos blockPos = getPlayerPosition(isCompassTracking(tag), compassLevel, target);
+			BlockPos blockPos = getBlockPlayerPosition(isCompassTracking(tag), compassLevel, target);
 			if (blockPos == null)
 				return null;
 			return GlobalPos.of(compassLevel.dimension(), blockPos);
@@ -136,28 +192,29 @@ public class HunterCompassItem extends Item {
 	 * @param target targeted player
 	 * @return coordinates along with compass dimension
 	 */
-	public static BlockPos getPlayerPosition(boolean isTracking, ServerLevel compassLevel, final ServerPlayer target) {
-		// Live coords
+	public static BlockPos getBlockPlayerPosition(boolean isTracking, ServerLevel compassLevel, final ServerPlayer target) {
 		try {
 			if (isTracking) {
+				// Live coords
 				Vec3 pos = target.getPosition(1);
-				return new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
+				return BlockPos.containing(pos);
 			}
+
+			// Get the latest known coords in the compass's dimension of the target player
+			Vec3 pos = Game.get().getPlayerData().getLastPosition(compassLevel.dimension()).get(target.getUUID());
+			if (pos == null)
+				return null;
+			return BlockPos.containing(pos);
+
 		} catch (NullPointerException e) {
 			return null;
 		}
-
-		// Get the latest known coords in the compass's dimension of the target player
-		Vec3 pos = Game.get().getPlayerData().getLastPosition(compassLevel.dimension()).get(target.getUUID());
-		if (pos == null)
-			return null;
-		return new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
 	}
 
 	@Override
 	@ParametersAreNonnullByDefault
 	public boolean isFoil(final ItemStack itemStack) {
-		return isCompassTracking(itemStack.getOrCreateTag()) || super.isFoil(itemStack);
+		return isCompassTracking(itemStack.getOrCreateTag());
 	}
 
 	public static void removeTags(final Level level, final CompoundTag tag) {

@@ -258,7 +258,7 @@ public class DebugCommand {
 							ItemStack itemStack0 = player.getInventory().getItem(0);
 							if (itemStack0.getItem() instanceof HunterCompassItem) {
 								GlobalPos globalPos =
-										HunterCompassItem.getPlayerPosition(player.getLevel(),
+										HunterCompassItem.getBlockPlayerPosition(player.getLevel(),
 												itemStack0.getOrCreateTag());
 
 								if (globalPos == null)

@@ -142,7 +142,7 @@ public class PlayerData {
                 PlayerCoords coords = getLastPosition(level.dimension());
 
                 if (coords != null)
-                    coords.update(player.getUUID(), player.getPosition(0));
+                    coords.update(player.getUUID(), player.getPosition(1));
             } catch (Exception ignored) {}
         }
     }

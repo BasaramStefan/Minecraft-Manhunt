@@ -1,6 +1,7 @@
 package net.bezeram.manhuntmod.networking.packets;
 
 import net.bezeram.manhuntmod.game.Game;
+import net.bezeram.manhuntmod.item.custom.HunterCompassItem;
 import net.bezeram.manhuntmod.networking.ModMessages;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -10,7 +11,7 @@ import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
-import static net.bezeram.manhuntmod.item.custom.HunterCompassItem.getPlayerPosition;
+import static net.bezeram.manhuntmod.item.custom.HunterCompassItem.getBlockPlayerPosition;
 
 public class HunterCompassGetPosC2SPacket {
 
@@ -41,7 +42,7 @@ public class HunterCompassGetPosC2SPacket {
                 ServerLevel compassLevel = hunter.getLevel();
                 ServerPlayer target = Game.get().getPlayer(MAID);
 
-                BlockPos playerPos = getPlayerPosition(isTracking, compassLevel, target);
+                BlockPos playerPos = HunterCompassItem.getBlockPlayerPosition(isTracking, compassLevel, target);
                 int posX = Integer.MAX_VALUE;
                 int posZ = Integer.MAX_VALUE;
                 if (playerPos != null) {

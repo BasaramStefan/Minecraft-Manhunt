@@ -26,11 +26,7 @@ public class ModMessages {
 
 		INSTANCE = net;
 
-		net.messageBuilder(HunterCompassUseC2SPacket.class, ID(), NetworkDirection.PLAY_TO_SERVER)
-				.decoder(HunterCompassUseC2SPacket::new)
-				.encoder(HunterCompassUseC2SPacket::toBytes)
-				.consumerMainThread(HunterCompassUseC2SPacket::handle)
-				.add();
+		/// Server side packets ------------------------
 
 		net.messageBuilder(HunterCompassGetPosC2SPacket.class, ID(), NetworkDirection.PLAY_TO_SERVER)
 				.decoder(HunterCompassGetPosC2SPacket::new)
@@ -43,6 +39,8 @@ public class ModMessages {
 				.encoder(PortalRespawnerC2SPacket::toBytes)
 				.consumerMainThread(PortalRespawnerC2SPacket::handle)
 				.add();
+
+		/// Client side packets ------------------------
 
 		net.messageBuilder(HunterCompassGetPosS2CPacket.class, ID(), NetworkDirection.PLAY_TO_CLIENT)
 				.decoder(HunterCompassGetPosS2CPacket::new)
